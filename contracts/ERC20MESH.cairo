@@ -1,5 +1,5 @@
 %lang starknet
-%builtins pedersen range_check ecdsa
+%builtins pedersen range_check
 
 
 # @title Mesh DAO Token
@@ -12,7 +12,7 @@
 #      https://github.com/curvefi/curve-dao-contracts/blob/master/contracts/ERC20CRV.vy
 
 
-from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin
+from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import get_caller_address
 from starkware.cairo.common.math import assert_not_zero, assert_le
 from starkware.cairo.common.uint256 import (
@@ -31,7 +31,7 @@ const YEAR = 86400 * 365
 # left for inflation: 57%
 # https://resources.curve.fi/base-features/understanding-tokenomics
 const INITIAL_SUPPLY = 1303030303  # 43% of 3.03 billion total supply
-const INITAL_RATE = 274815283 * (10 ** 18) / YEAR  ## leading to 43% premine
+const INITAL_RATE = 8714335457889396736  ## 274815283 * (10 ** 18) / YEAR  ## leading to 43% premine
 const RATE_REDUCTION_TIME = YEAR
 const RATE_REDUCTION_COEFFICIENT = 1189207115002721024  ## 2 ** (1/4) * (10 ** 18)
 const RATE_DENOMINATOR = 10 ** 18
@@ -136,7 +136,7 @@ func constructor{
 
     local initial_supply: Uint256
     assert initial_supply = Uint256(INITIAL_SUPPLY * (10 ** 18), 0)
-    _mint(initial_owner, initial_supply, current_timestamp) ## TODO, block.timestamp
+    _mint_initial(initial_owner, initial_supply)
 
     _start_epoch_time.write(Uint256(current_timestamp + INFLATION_DELAY - RATE_REDUCTION_TIME, 0))  ## TODO, block.timestamp
     _mining_epoch.write(-1)
@@ -682,6 +682,25 @@ func _mint{
     assert_not_zero(enough_supply)
 
     total_supply.write(new_supply)
+    return ()
+end
+
+#
+# Internals
+#
+
+func _mint_initial{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }(recipient: felt, amount: Uint256):
+    alloc_locals
+    assert_not_zero(recipient)
+    uint256_check(amount)
+    
+    balances.write(recipient, amount)
+
+    total_supply.write(amount)
     return ()
 end
 
