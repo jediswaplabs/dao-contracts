@@ -56,7 +56,7 @@ end
 
 # @notice reentrancy guard
 @storage_var
-func _locked() -> (res: felt):
+func _reentrancy_locked() -> (res: felt):
 end
 
 # @notice Contract constructor
@@ -75,7 +75,7 @@ func constructor{
     _token.write(token)
     assert_not_zero(controller)
     _controller.write(controller)
-    _locked.write(0)
+    _reentrancy_locked.write(0)
     return ()
 end
 
@@ -139,10 +139,10 @@ func mint{
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
     }(gauge: felt):
-    _check_and_lock()
+    _check_and_lock_reentrancy()
     let (caller) = get_caller_address()
     _mint_for(gauge, caller)
-    _unlock()
+    _unlock_reentrancy()
     return ()
 end
 
@@ -155,10 +155,10 @@ func mint_many{
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
     }(gauges_len: felt, gauges: felt*):
-    _check_and_lock()
+    _check_and_lock_reentrancy()
     let (caller) = get_caller_address()
     _mint_for_many(0, gauges_len, gauges, caller)
-    _unlock()
+    _unlock_reentrancy()
     return ()
 end
 
@@ -172,7 +172,7 @@ func mint_for{
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
     }(gauge: felt, for_user: felt):
-    _check_and_lock()
+    _check_and_lock_reentrancy()
     let (caller) = get_caller_address()
     let (is_allowed) = _allowed_to_mint_for.read(caller, for_user)
     if is_allowed == 1:
@@ -185,7 +185,7 @@ func mint_for{
         tempvar pedersen_ptr = pedersen_ptr
         tempvar range_check_ptr = range_check_ptr
     end
-    _unlock()
+    _unlock_reentrancy()
     return ()
 end
 
@@ -249,26 +249,26 @@ func _mint_for{
     return ()
 end
 
-# @dev Check if the entry is not locked, and lock it
-func _check_and_lock{
+# @dev Check if the entry is not reentrancy_locked, and lock it
+func _check_and_lock_reentrancy{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
     }():
-    let (locked) = _locked.read()
-    assert locked = 0
-    _locked.write(1)
+    let (reentrancy_locked) = _reentrancy_locked.read()
+    assert reentrancy_locked = 0
+    _reentrancy_locked.write(1)
     return ()
 end
 
 # @dev Unlock the entry
-func _unlock{
+func _unlock_reentrancy{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
     }():
-    let (locked) = _locked.read()
-    assert locked = 1
-    _locked.write(0)
+    let (reentrancy_locked) = _reentrancy_locked.read()
+    assert reentrancy_locked = 1
+    _reentrancy_locked.write(0)
     return ()
 end
