@@ -357,7 +357,7 @@ end
 # @dev _transfer has all the checks and logic
 # @param recipient The address to transfer to
 # @param amount The amount to be transferred
-# @return success If the transfer was successful or not
+# @return success 0 or 1
 @external
 func transfer{
         syscall_ptr : felt*, 
@@ -376,7 +376,7 @@ end
 # @param sender The address to transfer from
 # @param recipient The address to transfer to
 # @param amount The amount to be transferred
-# @return success
+# @return success 0 or 1
 @external
 func transferFrom{
         syscall_ptr : felt*, 
@@ -412,7 +412,7 @@ end
 #      https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
 # @param spender The address which will spend the funds
 # @param amount The amount of tokens to be spent
-# @return success
+# @return success 0 or 1
 @external
 func approve{
         syscall_ptr : felt*, 
@@ -437,7 +437,7 @@ end
 # @notice Increase allowance of `spender` to transfer `added_value` more tokens on behalf of `caller`
 # @param spender The address which will spend the funds
 # @param added_value The increased amount of tokens to be spent
-# @return success
+# @return success 0 or 1
 @external
 func increaseAllowance{
         syscall_ptr : felt*, 
@@ -462,7 +462,7 @@ end
 # @notice Decrease allowance of `spender` to transfer `subtracted_value` less tokens on behalf of `caller`
 # @param spender The address which will spend the funds
 # @param subtracted_value The decreased amount of tokens to be spent
-# @return success
+# @return success 0 or 1
 @external
 func decreaseAllowance{
         syscall_ptr : felt*, 

@@ -34,27 +34,27 @@ namespace GaugeController:
     end
 end
 
-# @notice ERC20MESH token address
+# @dev ERC20MESH token address
 @storage_var
 func _token() -> (address: felt):
 end
 
-# @notice Gauge Controller
+# @dev Gauge Controller
 @storage_var
 func _controller() -> (address: felt):
 end
 
-# @notice user -> gauge -> value
+# @dev user -> gauge -> value
 @storage_var
 func _minted(user: felt, gauge: felt) -> (amount: Uint256):
 end
 
-# @notice minter -> user -> can mint?
+# @dev minter -> user -> can mint?
 @storage_var
 func _allowed_to_mint_for(minter_user: felt, for_user: felt) -> (can_mint: felt):
 end
 
-# @notice reentrancy guard
+# @dev reentrancy guard
 @storage_var
 func _reentrancy_locked() -> (res: felt):
 end
