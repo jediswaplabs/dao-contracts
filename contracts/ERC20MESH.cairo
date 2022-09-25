@@ -18,6 +18,8 @@ from starkware.cairo.common.math import assert_not_zero, assert_le
 from starkware.cairo.common.uint256 import (
     Uint256, uint256_add, uint256_sub, uint256_mul, uint256_unsigned_div_rem, uint256_eq, uint256_le, uint256_lt, uint256_check
 )
+from starkware.starknet.common.syscalls import get_block_timestamp
+
 
 const YEAR = 86400 * 365
 
@@ -293,7 +295,8 @@ func available_supply{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
-    }(current_timestamp: felt) -> (supply: Uint256):
+    }() -> (supply: Uint256):
+    let (current_timestamp) = get_block_timestamp()
     return _available_supply(current_timestamp)
 end
 
@@ -497,7 +500,7 @@ func mint{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
-    }(recipient: felt, amount: Uint256, current_timestamp: felt) -> (success: felt):
+    }(recipient: felt, amount: Uint256) -> (success: felt):
     alloc_locals
     let (caller) = get_caller_address()
     let (minter) = _minter.read()
@@ -505,6 +508,7 @@ func mint{
     let (local start_epoch_time: Uint256) = _start_epoch_time.read()
     let (local next_epoch_time: Uint256, is_overflow) = uint256_add(start_epoch_time, Uint256(RATE_REDUCTION_TIME, 0))
     assert (is_overflow) = 0
+    let (current_timestamp) = get_block_timestamp()
     let (is_current_timestamp_greater_than_equal_next_epoch_time) = uint256_le(next_epoch_time, Uint256(current_timestamp, 0))  ## TODO, block.timestamp
     if is_current_timestamp_greater_than_equal_next_epoch_time == 1:
         _update_mining_parameters()
@@ -516,7 +520,7 @@ func mint{
         tempvar pedersen_ptr = pedersen_ptr
         tempvar range_check_ptr = range_check_ptr
     end
-    _mint(recipient, amount, current_timestamp) ## TODO, block.timestamp
+    _mint(recipient, amount, current_timestamp)
     return (1)
 end
 
@@ -590,12 +594,13 @@ func update_mining_parameters{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
-    }(current_timestamp: felt):
+    }():
     alloc_locals
     let (local start_epoch_time: Uint256) = _start_epoch_time.read()
     let (local next_epoch_time: Uint256, is_overflow) = uint256_add(start_epoch_time, Uint256(RATE_REDUCTION_TIME, 0))
     assert (is_overflow) = 0
-    let (is_current_timestamp_greater_than_equal_next_epoch_time) = uint256_le(next_epoch_time, Uint256(current_timestamp, 0))  ## TODO, block.timestamp
+    let (current_timestamp) = get_block_timestamp()
+    let (is_current_timestamp_greater_than_equal_next_epoch_time) = uint256_le(next_epoch_time, Uint256(current_timestamp, 0))
     assert_not_zero(is_current_timestamp_greater_than_equal_next_epoch_time)
     _update_mining_parameters()
     return ()
@@ -675,7 +680,7 @@ func _mint{
     let (local new_supply: Uint256, is_overflow) = uint256_add(supply, amount)
     assert (is_overflow) = 0
     
-    let (local available_supply: Uint256) = _available_supply(current_timestamp)   ## TODO, block.timestamp
+    let (local available_supply: Uint256) = _available_supply(current_timestamp)
 
     # validates new_supply <= available_supply and returns 1 if true
     let (enough_supply) = uint256_le(new_supply, available_supply)
@@ -785,7 +790,7 @@ func _available_supply{
     }(current_timestamp: felt) -> (supply: Uint256):
     alloc_locals
     let (local start_epoch_time: Uint256) = _start_epoch_time.read()
-    let (time_diff: Uint256) = uint256_sub(Uint256(current_timestamp, 0), start_epoch_time)  ## TODO, block.timestamp
+    let (time_diff: Uint256) = uint256_sub(Uint256(current_timestamp, 0), start_epoch_time)
     let (local rate: Uint256) = _rate.read()
     let (local supply_during_time_diff: Uint256, local mul_high: Uint256) = uint256_mul(time_diff, rate)
     let (is_mul_high_0) =  uint256_eq(mul_high, Uint256(0, 0))
