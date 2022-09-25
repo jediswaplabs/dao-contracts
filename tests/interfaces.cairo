@@ -32,9 +32,18 @@ namespace IERC20MESH:
     func start_epoch_time() -> (start_epoch_time: Uint256):
     end
 
+    func start_epoch_time_write() -> (start_epoch_time: Uint256):
+    end
+
     func rate() -> (rate: Uint256):
     end
 
     func available_supply() -> (supply: Uint256):
+    end
+
+    func mining_epoch() -> (mining_epoch: felt):
+    end
+
+    func mintable_in_timeframe(start_timestamp: felt, end_timestamp: felt) -> (to_mint: Uint256):
     end
 end

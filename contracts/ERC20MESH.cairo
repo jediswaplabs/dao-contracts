@@ -116,7 +116,6 @@ end
 # @param name Token full name
 # @param symbol Token symbol
 # @param initial_owner Initial owner of the token
-# @param current_timestamp Replacement for block.timestamp, will be removed soon
 @constructor
 func constructor{
         syscall_ptr : felt*, 
@@ -125,8 +124,7 @@ func constructor{
     }(
         name: felt,
         symbol: felt,
-        initial_owner: felt,
-        current_timestamp: felt
+        initial_owner: felt
     ):
     alloc_locals
     _name.write(name)
@@ -139,8 +137,9 @@ func constructor{
     local initial_supply: Uint256
     assert initial_supply = Uint256(INITIAL_SUPPLY * (10 ** 18), 0)
     _mint_initial(initial_owner, initial_supply)
-
-    _start_epoch_time.write(Uint256(current_timestamp + INFLATION_DELAY - RATE_REDUCTION_TIME, 0))  ## TODO, block.timestamp
+    
+    let (current_timestamp) = get_block_timestamp()
+    _start_epoch_time.write(Uint256(current_timestamp + INFLATION_DELAY - RATE_REDUCTION_TIME, 0))
     _mining_epoch.write(-1)
     _rate.write(Uint256(0, 0))
     _start_epoch_supply.write(initial_supply)
@@ -288,7 +287,6 @@ func rate{
 end
 
 # @notice Current number of tokens in existence (claimed or unclaimed)
-# @param current_timestamp Replacement for block.timestamp, will be removed soon
 # @return supply available supply
 @view
 func available_supply{
@@ -493,7 +491,6 @@ end
 # @dev Only minter is allowed to mint tokens
 # @param recipient The account that will receive the created tokens
 # @param amount The amount that will be created
-# @param current_timestamp Replacement for block.timestamp, will be removed soon
 # @return bool success
 @external
 func mint{
@@ -509,7 +506,7 @@ func mint{
     let (local next_epoch_time: Uint256, is_overflow) = uint256_add(start_epoch_time, Uint256(RATE_REDUCTION_TIME, 0))
     assert (is_overflow) = 0
     let (current_timestamp) = get_block_timestamp()
-    let (is_current_timestamp_greater_than_equal_next_epoch_time) = uint256_le(next_epoch_time, Uint256(current_timestamp, 0))  ## TODO, block.timestamp
+    let (is_current_timestamp_greater_than_equal_next_epoch_time) = uint256_le(next_epoch_time, Uint256(current_timestamp, 0))
     if is_current_timestamp_greater_than_equal_next_epoch_time == 1:
         _update_mining_parameters()
         tempvar syscall_ptr = syscall_ptr
@@ -588,7 +585,6 @@ end
 # @notice Update mining rate and supply at the start of the epoch
 # @dev Callable by any address, but only once per epoch
 #      Total supply becomes slightly larger if this function is called late
-# @param current_timestamp Replacement for block.timestamp, will be removed soon
 @external
 func update_mining_parameters{
         syscall_ptr : felt*, 
@@ -609,19 +605,19 @@ end
 # @notice Get timestamp of the current mining epoch start
 #         while simultaneously updating mining parameters
 # @dev Callable by any address
-# @param current_timestamp Replacement for block.timestamp, will be removed soon
 # @return start_epoch_time Timestamp of the epoch
 @external
 func start_epoch_time_write{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
-    }(current_timestamp: felt) -> (start_epoch_time: Uint256):
+    }() -> (start_epoch_time: Uint256):
     alloc_locals
     let (local start_epoch_time: Uint256) = _start_epoch_time.read()
     let (local next_epoch_time: Uint256, is_overflow) = uint256_add(start_epoch_time, Uint256(RATE_REDUCTION_TIME, 0))
     assert (is_overflow) = 0
-    let (is_current_timestamp_greater_than_equal_next_epoch_time) = uint256_le(next_epoch_time, Uint256(current_timestamp, 0))  ## TODO, block.timestamp
+    let (current_timestamp) = get_block_timestamp()
+    let (is_current_timestamp_greater_than_equal_next_epoch_time) = uint256_le(next_epoch_time, Uint256(current_timestamp, 0))
     if is_current_timestamp_greater_than_equal_next_epoch_time == 1:
         _update_mining_parameters()
         return (next_epoch_time)
@@ -633,19 +629,19 @@ end
 # @notice Get timestamp of the next mining epoch start
 #         while simultaneously updating mining parameters
 # @dev Callable by any address
-# @param current_timestamp Replacement for block.timestamp, will be removed soon
 # @return start_epoch_time Timestamp of the next epoch
 @external
 func future_epoch_time_write{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
-    }(current_timestamp: felt) -> (start_epoch_time: Uint256):
+    }() -> (start_epoch_time: Uint256):
     alloc_locals
     let (local start_epoch_time: Uint256) = _start_epoch_time.read()
     let (local next_epoch_time: Uint256, is_overflow) = uint256_add(start_epoch_time, Uint256(RATE_REDUCTION_TIME, 0))
     assert (is_overflow) = 0
-    let (is_current_timestamp_greater_than_equal_next_epoch_time) = uint256_le(next_epoch_time, Uint256(current_timestamp, 0))  ## TODO, block.timestamp
+    let (current_timestamp) = get_block_timestamp()
+    let (is_current_timestamp_greater_than_equal_next_epoch_time) = uint256_le(next_epoch_time, Uint256(current_timestamp, 0))
     if is_current_timestamp_greater_than_equal_next_epoch_time == 1:
         _update_mining_parameters()
         let (local next_next_epoch_time: Uint256, is_overflow) = uint256_add(next_epoch_time, Uint256(RATE_REDUCTION_TIME, 0))

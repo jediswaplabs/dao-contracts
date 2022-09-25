@@ -22,7 +22,13 @@ func __setup__{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         context.user_1_signer = ids.user_1_signer
         context.user_1_address = deploy_contract("./contracts/test/Account.cairo", [context.user_1_signer]).contract_address
         context.deployer_address = deploy_contract("./contracts/test/Account.cairo", [context.deployer_signer]).contract_address
-        context.erc20_mesh_address = deploy_contract("./contracts/ERC20MESH.cairo", [11, 1, context.deployer_address, 86400 * 365]).contract_address
+        # This is to ensure that the constructor is affected by the warp cheatcode
+        declared = declare("./contracts/ERC20MESH.cairo")
+        prepared = prepare(declared, [11, 1, context.deployer_address])
+        stop_warp = warp(86400 * 365, target_contract_address=prepared.contract_address)
+        context.erc20_mesh_address = prepared.contract_address
+        deploy(prepared)
+        stop_warp()
     %}
 
     return ()
