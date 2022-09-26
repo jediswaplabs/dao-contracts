@@ -17,6 +17,12 @@ namespace IERC20MESH:
     func set_minter(new_minter: felt) -> (new_minter: felt):
     end
 
+    func transfer_ownership(new_owner: felt) -> (new_owner: felt):
+    end
+
+    func set_name_symbol(new_name: felt, new_symbol: felt):
+    end
+
     func totalSupply() -> (totalSupply: Uint256):
     end
 
@@ -39,6 +45,18 @@ namespace IERC20MESH:
     end
 
     func available_supply() -> (supply: Uint256):
+    end
+
+    func minter() -> (address: felt):
+    end
+
+    func owner() -> (address: felt):
+    end
+
+    func name() -> (name: felt):
+    end
+
+    func symbol() -> (symbol: felt):
     end
 
     func mining_epoch() -> (mining_epoch: felt):
