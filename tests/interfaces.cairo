@@ -41,6 +41,9 @@ namespace IERC20MESH:
     func start_epoch_time_write() -> (start_epoch_time: Uint256):
     end
 
+    func future_epoch_time_write() -> (start_epoch_time: Uint256):
+    end
+
     func rate() -> (rate: Uint256):
     end
 
