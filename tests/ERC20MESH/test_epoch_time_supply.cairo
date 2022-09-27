@@ -73,6 +73,44 @@ func test_start_epoch_time_write{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*,
 end
 
 @external
+func test_future_epoch_time_write{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}():
+    alloc_locals
+
+    local erc20_mesh_address
+    local deployer_address
+
+    %{
+        ids.erc20_mesh_address = context.erc20_mesh_address
+        ids.deployer_address = context.deployer_address
+    %}
+
+
+    let (creation_time) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address)
+
+    # Set block timestamp to 1 year after creation (2 years in)
+    %{ stop_warp = warp(86400 * 730, target_contract_address=ids.erc20_mesh_address) %}
+
+    # The view function should not report a changed value
+    let (epoch_time_not_updated) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address)
+    assert creation_time = epoch_time_not_updated
+
+    # The state-changing function should show the changed value
+    %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.erc20_mesh_address) %}
+    let (epoch_time_updated) = IERC20MESH.future_epoch_time_write(contract_address=erc20_mesh_address)
+    %{ stop_warp() %}
+    %{ stop_prank() %}
+    let (expected_future_epoch_time_updated, _) = uint256_add(creation_time, Uint256(YEAR + YEAR, 0))
+    assert epoch_time_updated = expected_future_epoch_time_updated
+
+    # After calling the state-changing function, the view function is changed
+    let (epoch_time_after_updated) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address)
+    let (expected_epoch_time_updated, _) = uint256_add(creation_time, Uint256(YEAR, 0))
+    assert epoch_time_after_updated = expected_epoch_time_updated
+
+    return ()
+end
+
+@external
 func test_update_mining_parameters_same_epoch{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}():
     alloc_locals
 
