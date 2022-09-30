@@ -8,15 +8,15 @@ from starkware.cairo.common.alloc import alloc
 from tests.ERC20MESH.interfaces import IERC20MESH
 from starkware.starknet.common.syscalls import get_block_timestamp
 
-const WEEK = 86400 * 7
-const YEAR = 365 * 86400
+const WEEK = 86400 * 7;
+const YEAR = 365 * 86400;
 
 @external
-func __setup__{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}():
-    alloc_locals
+func __setup__{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){
+    alloc_locals;
 
-    local deployer_signer = 1
-    local user_1_signer = 2
+    local deployer_signer = 1;
+    local user_1_signer = 2;
 
     %{
         context.deployer_signer = ids.deployer_signer
@@ -31,16 +31,16 @@ func __setup__{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         deploy(prepared)
         stop_warp()
     %}
-    return ()
-end
+    return ();
+}
 
 
 @external
-func test_start_epoch_time_write{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}():
-    alloc_locals
+func test_start_epoch_time_write{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){
+    alloc_locals;
 
-    local erc20_mesh_address
-    local deployer_address
+    local erc20_mesh_address;
+    local deployer_address;
 
     %{
         ids.erc20_mesh_address = context.erc20_mesh_address
@@ -48,36 +48,36 @@ func test_start_epoch_time_write{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*,
     %}
 
 
-    let (creation_time) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address)
+    let (creation_time) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address);
 
-    # Set block timestamp to 1 year after creation (2 years in)
+    // Set block timestamp to 1 year after creation (2 years in)
     %{ stop_warp = warp(86400 * 730, target_contract_address=ids.erc20_mesh_address) %}
 
-    # The view function should not report a changed value
-    let (epoch_time_not_updated) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address)
-    assert creation_time = epoch_time_not_updated
+    // The view function should not report a changed value
+    let (epoch_time_not_updated) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address);
+    assert creation_time = epoch_time_not_updated;
 
-    # The state-changing function should show the changed value
+    // The state-changing function should show the changed value
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.erc20_mesh_address) %}
-    let (epoch_time_updated) = IERC20MESH.start_epoch_time_write(contract_address=erc20_mesh_address)
+    let (epoch_time_updated) = IERC20MESH.start_epoch_time_write(contract_address=erc20_mesh_address);
     %{ stop_warp() %}
     %{ stop_prank() %}
-    let (expected_epoch_time_updated, _) = uint256_add(creation_time, Uint256(YEAR, 0))
-    assert epoch_time_updated = expected_epoch_time_updated
+    let (expected_epoch_time_updated, _) = uint256_add(creation_time, Uint256(YEAR, 0));
+    assert epoch_time_updated = expected_epoch_time_updated;
 
-    # After calling the state-changing function, the view function is changed
-    let (epoch_time_after_updated) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address)
-    assert epoch_time_after_updated = expected_epoch_time_updated
+    // After calling the state-changing function, the view function is changed
+    let (epoch_time_after_updated) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address);
+    assert epoch_time_after_updated = expected_epoch_time_updated;
 
-    return ()
-end
+    return ();
+}
 
 @external
-func test_future_epoch_time_write{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}():
-    alloc_locals
+func test_future_epoch_time_write{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){
+    alloc_locals;
 
-    local erc20_mesh_address
-    local deployer_address
+    local erc20_mesh_address;
+    local deployer_address;
 
     %{
         ids.erc20_mesh_address = context.erc20_mesh_address
@@ -85,95 +85,95 @@ func test_future_epoch_time_write{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*
     %}
 
 
-    let (creation_time) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address)
+    let (creation_time) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address);
 
-    # Set block timestamp to 1 year after creation (2 years in)
+    // Set block timestamp to 1 year after creation (2 years in)
     %{ stop_warp = warp(86400 * 730, target_contract_address=ids.erc20_mesh_address) %}
 
-    # The view function should not report a changed value
-    let (epoch_time_not_updated) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address)
-    assert creation_time = epoch_time_not_updated
+    // The view function should not report a changed value
+    let (epoch_time_not_updated) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address);
+    assert creation_time = epoch_time_not_updated;
 
-    # The state-changing function should show the changed value
+    // The state-changing function should show the changed value
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.erc20_mesh_address) %}
-    let (epoch_time_updated) = IERC20MESH.future_epoch_time_write(contract_address=erc20_mesh_address)
+    let (epoch_time_updated) = IERC20MESH.future_epoch_time_write(contract_address=erc20_mesh_address);
     %{ stop_warp() %}
     %{ stop_prank() %}
-    let (expected_future_epoch_time_updated, _) = uint256_add(creation_time, Uint256(YEAR + YEAR, 0))
-    assert epoch_time_updated = expected_future_epoch_time_updated
+    let (expected_future_epoch_time_updated, _) = uint256_add(creation_time, Uint256(YEAR + YEAR, 0));
+    assert epoch_time_updated = expected_future_epoch_time_updated;
 
-    # After calling the state-changing function, the view function is changed
-    let (epoch_time_after_updated) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address)
-    let (expected_epoch_time_updated, _) = uint256_add(creation_time, Uint256(YEAR, 0))
-    assert epoch_time_after_updated = expected_epoch_time_updated
+    // After calling the state-changing function, the view function is changed
+    let (epoch_time_after_updated) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address);
+    let (expected_epoch_time_updated, _) = uint256_add(creation_time, Uint256(YEAR, 0));
+    assert epoch_time_after_updated = expected_epoch_time_updated;
 
-    return ()
-end
+    return ();
+}
 
 @external
-func test_update_mining_parameters_same_epoch{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}():
-    alloc_locals
+func test_update_mining_parameters_same_epoch{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){
+    alloc_locals;
 
-    local erc20_mesh_address
-    local deployer_address
+    local erc20_mesh_address;
+    local deployer_address;
 
     %{
         ids.erc20_mesh_address = context.erc20_mesh_address
         ids.deployer_address = context.deployer_address
     %}
 
-    let (creation_time) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address)
-    # Set block timestamp to before new epoch
+    let (creation_time) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address);
+    // Set block timestamp to before new epoch
     %{ stop_warp = warp(86400 * 365 - 3, target_contract_address=ids.erc20_mesh_address) %}
     %{ expect_revert() %}
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.erc20_mesh_address) %}
-    IERC20MESH.update_mining_parameters(contract_address=erc20_mesh_address)
+    IERC20MESH.update_mining_parameters(contract_address=erc20_mesh_address);
     %{ stop_prank() %}
     %{ stop_warp() %}
 
-    return ()
-end
+    return ();
+}
 
 @external
-func test_mintable_in_timeframe_end_before_start{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}():
-    alloc_locals
+func test_mintable_in_timeframe_end_before_start{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){
+    alloc_locals;
 
-    local erc20_mesh_address
-    local deployer_address
+    local erc20_mesh_address;
+    local deployer_address;
 
     %{
         ids.erc20_mesh_address = context.erc20_mesh_address
         ids.deployer_address = context.deployer_address
     %}
 
-    let (creation_time) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address)
-    let creation_time_felt = creation_time.low
-    let creation_time_1 = creation_time_felt + 1
+    let (creation_time) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address);
+    let creation_time_felt = creation_time.low;
+    let creation_time_1 = creation_time_felt + 1;
     %{ expect_revert() %}
-    IERC20MESH.mintable_in_timeframe(contract_address=erc20_mesh_address, start_timestamp=creation_time_1, end_timestamp=creation_time_felt)
-    return ()
-end
+    IERC20MESH.mintable_in_timeframe(contract_address=erc20_mesh_address, start_timestamp=creation_time_1, end_timestamp=creation_time_felt);
+    return ();
+}
 
 @external
-func test_mintable_in_timeframe_multiple_epochs{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}():
-    alloc_locals
+func test_mintable_in_timeframe_multiple_epochs{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){
+    alloc_locals;
 
-    local erc20_mesh_address
-    local deployer_address
+    local erc20_mesh_address;
+    local deployer_address;
 
     %{
         ids.erc20_mesh_address = context.erc20_mesh_address
         ids.deployer_address = context.deployer_address
     %}
 
-    let (creation_time) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address)
-    let creation_time_felt = creation_time.low
-    let creation_time_under_two_epochs = creation_time_felt + YEAR * 2 - 100
-    IERC20MESH.mintable_in_timeframe(contract_address=erc20_mesh_address, start_timestamp=creation_time_felt, end_timestamp=creation_time_under_two_epochs)
+    let (creation_time) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address);
+    let creation_time_felt = creation_time.low;
+    let creation_time_under_two_epochs = creation_time_felt + YEAR * 2 - 100;
+    IERC20MESH.mintable_in_timeframe(contract_address=erc20_mesh_address, start_timestamp=creation_time_felt, end_timestamp=creation_time_under_two_epochs);
     
-    let creation_time_over_two_epochs = creation_time_felt + YEAR * 2 + 100
+    let creation_time_over_two_epochs = creation_time_felt + YEAR * 2 + 100;
     %{ expect_revert() %}
-    IERC20MESH.mintable_in_timeframe(contract_address=erc20_mesh_address, start_timestamp=creation_time_felt, end_timestamp=creation_time_over_two_epochs)
+    IERC20MESH.mintable_in_timeframe(contract_address=erc20_mesh_address, start_timestamp=creation_time_felt, end_timestamp=creation_time_over_two_epochs);
 
-    return ()
-end
+    return ();
+}

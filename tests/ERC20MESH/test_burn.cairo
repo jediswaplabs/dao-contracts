@@ -9,11 +9,11 @@ from tests.ERC20MESH.interfaces import IERC20MESH
 from starkware.starknet.common.syscalls import get_block_timestamp
 
 @external
-func __setup__{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}():
-    alloc_locals
+func __setup__{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){
+    alloc_locals;
 
-    local deployer_signer = 1
-    local user_1_signer = 2
+    local deployer_signer = 1;
+    local user_1_signer = 2;
 
     %{
         context.deployer_signer = ids.deployer_signer
@@ -28,51 +28,51 @@ func __setup__{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         deploy(prepared)
         stop_warp()
     %}
-    return ()
-end
+    return ();
+}
 
 
 @external
-func test_burn{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}():
-    alloc_locals
+func test_burn{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){
+    alloc_locals;
 
-    local erc20_mesh_address
-    local deployer_address
+    local erc20_mesh_address;
+    local deployer_address;
 
     %{
         ids.erc20_mesh_address = context.erc20_mesh_address
         ids.deployer_address = context.deployer_address
     %}
 
-    let amount = Uint256(10000, 0)
+    let amount = Uint256(10000, 0);
 
-    let (initial_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=deployer_address)
-    let (initial_supply) = IERC20MESH.totalSupply(contract_address=erc20_mesh_address)
+    let (initial_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=deployer_address);
+    let (initial_supply) = IERC20MESH.totalSupply(contract_address=erc20_mesh_address);
 
-    # Burn tokens
+    // Burn tokens
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.erc20_mesh_address) %}
-    IERC20MESH.burn(contract_address=erc20_mesh_address, amount=amount)
+    IERC20MESH.burn(contract_address=erc20_mesh_address, amount=amount);
     %{ stop_prank() %}
     
-    let (final_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=deployer_address)
-    let (final_supply) = IERC20MESH.totalSupply(contract_address=erc20_mesh_address)
+    let (final_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=deployer_address);
+    let (final_supply) = IERC20MESH.totalSupply(contract_address=erc20_mesh_address);
 
-    let (expected_final_balance) = uint256_sub(initial_balance, amount)
-    let (expected_final_supply) = uint256_sub(initial_supply, amount)
+    let (expected_final_balance) = uint256_sub(initial_balance, amount);
+    let (expected_final_supply) = uint256_sub(initial_supply, amount);
 
-    assert final_balance = expected_final_balance
-    assert final_supply = expected_final_supply
+    assert final_balance = expected_final_balance;
+    assert final_supply = expected_final_supply;
 
-    return ()
-end
+    return ();
+}
 
 @external
-func test_burn_not_owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}():
-    alloc_locals
+func test_burn_not_owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){
+    alloc_locals;
 
-    local erc20_mesh_address
-    local deployer_address
-    local user_1_address
+    local erc20_mesh_address;
+    local deployer_address;
+    local user_1_address;
 
     %{
         ids.erc20_mesh_address = context.erc20_mesh_address
@@ -80,82 +80,82 @@ func test_burn_not_owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
         ids.user_1_address = context.user_1_address
     %}
 
-    let amount = Uint256(10000, 0)
+    let amount = Uint256(10000, 0);
 
-    # Transfer amount to user 1
+    // Transfer amount to user 1
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.erc20_mesh_address) %}
-    IERC20MESH.transfer(contract_address=erc20_mesh_address, recipient=user_1_address, amount=amount)
+    IERC20MESH.transfer(contract_address=erc20_mesh_address, recipient=user_1_address, amount=amount);
     %{ stop_prank() %}
 
-    let (initial_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=user_1_address)
-    let (initial_supply) = IERC20MESH.totalSupply(contract_address=erc20_mesh_address)
+    let (initial_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=user_1_address);
+    let (initial_supply) = IERC20MESH.totalSupply(contract_address=erc20_mesh_address);
 
-    # Burn tokens
+    // Burn tokens
     %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.erc20_mesh_address) %}
-    IERC20MESH.burn(contract_address=erc20_mesh_address, amount=amount)
+    IERC20MESH.burn(contract_address=erc20_mesh_address, amount=amount);
     %{ stop_prank() %}
     
-    let (final_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=user_1_address)
-    let (final_supply) = IERC20MESH.totalSupply(contract_address=erc20_mesh_address)
+    let (final_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=user_1_address);
+    let (final_supply) = IERC20MESH.totalSupply(contract_address=erc20_mesh_address);
 
-    let (expected_final_balance) = uint256_sub(initial_balance, amount)
-    let (expected_final_supply) = uint256_sub(initial_supply, amount)
+    let (expected_final_balance) = uint256_sub(initial_balance, amount);
+    let (expected_final_supply) = uint256_sub(initial_supply, amount);
 
-    assert final_balance = expected_final_balance
-    assert final_supply = expected_final_supply
+    assert final_balance = expected_final_balance;
+    assert final_supply = expected_final_supply;
 
-    return ()
-end
+    return ();
+}
 
 @external
-func test_burn_all{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}():
-    alloc_locals
+func test_burn_all{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){
+    alloc_locals;
 
-    local erc20_mesh_address
-    local deployer_address
+    local erc20_mesh_address;
+    local deployer_address;
 
     %{
         ids.erc20_mesh_address = context.erc20_mesh_address
         ids.deployer_address = context.deployer_address
     %}
 
-    let (initial_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=deployer_address)
-    let (initial_supply) = IERC20MESH.totalSupply(contract_address=erc20_mesh_address)
+    let (initial_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=deployer_address);
+    let (initial_supply) = IERC20MESH.totalSupply(contract_address=erc20_mesh_address);
 
-    # Burn tokens
+    // Burn tokens
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.erc20_mesh_address) %}
-    IERC20MESH.burn(contract_address=erc20_mesh_address, amount=initial_balance)
+    IERC20MESH.burn(contract_address=erc20_mesh_address, amount=initial_balance);
     %{ stop_prank() %}
     
-    let (final_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=deployer_address)
-    let (final_supply) = IERC20MESH.totalSupply(contract_address=erc20_mesh_address)
+    let (final_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=deployer_address);
+    let (final_supply) = IERC20MESH.totalSupply(contract_address=erc20_mesh_address);
 
-    assert final_balance = Uint256(0, 0)
-    assert final_supply = Uint256(0, 0)
+    assert final_balance = Uint256(0, 0);
+    assert final_supply = Uint256(0, 0);
 
-    return ()
-end
+    return ();
+}
 
 @external
-func test_overburn{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}():
-    alloc_locals
+func test_overburn{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){
+    alloc_locals;
 
-    local erc20_mesh_address
-    local deployer_address
+    local erc20_mesh_address;
+    local deployer_address;
 
     %{
         ids.erc20_mesh_address = context.erc20_mesh_address
         ids.deployer_address = context.deployer_address
     %}
 
-    let (initial_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=deployer_address)
-    let (amount, _) = uint256_add(initial_balance, Uint256(1, 0))
+    let (initial_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=deployer_address);
+    let (amount, _) = uint256_add(initial_balance, Uint256(1, 0));
 
-    # Burn tokens, expect failure
+    // Burn tokens, expect failure
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.erc20_mesh_address) %}
     %{ expect_revert() %}
-    IERC20MESH.burn(contract_address=erc20_mesh_address, amount=amount)
+    IERC20MESH.burn(contract_address=erc20_mesh_address, amount=amount);
     %{ stop_prank() %}
 
-    return ()
-end
+    return ();
+}
