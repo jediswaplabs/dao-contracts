@@ -1,5 +1,4 @@
 %lang starknet
-%builtins pedersen range_check
 
 
 // @title Voting Escrow
