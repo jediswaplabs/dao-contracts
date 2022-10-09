@@ -82,4 +82,7 @@ namespace IVotingEscrow {
 
     func future_admin() -> (address: felt) {
     }
+
+    func create_lock(value: Uint256, unlock_time: felt){
+    }
 }

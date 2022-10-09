@@ -722,11 +722,19 @@ func create_lock{
     let unlock_time = q * WEEK;  // Locktime is rounded down to weeks
     let (locked: LockedBalance) = _locked.read(caller);
     let (is_value_greater_than_zero) =  uint256_lt(Uint256(0, 0), value);
-    assert_not_zero(is_value_greater_than_zero);
+    with_attr error_message("Need non-zero value"){
+        assert_not_zero(is_value_greater_than_zero);
+    }
     let (is_locked_amount_equal_to_zero) =  uint256_eq(Uint256(0, 0), locked.amount);   // "Withdraw old tokens first"
-    assert_not_zero(is_locked_amount_equal_to_zero);
-    assert_lt(current_timestamp, unlock_time);  // "Can only lock until time in the future"
-    assert_le(unlock_time, current_timestamp + MAXTIME);  // "Voting lock can be 4 years max"
+    with_attr error_message("Withdraw old tokens first"){
+        assert_not_zero(is_locked_amount_equal_to_zero);
+    }
+    with_attr error_message("Can only lock until time in the future"){
+        assert_lt(current_timestamp, unlock_time);
+    }
+    with_attr error_message("Voting lock can be 4 years max"){
+        assert_le(unlock_time, current_timestamp + MAXTIME);
+    }
 
     _deposit_for(caller, value, unlock_time, locked, CREATE_LOCK_TYPE);
     _unlock_reentrancy();
