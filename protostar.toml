@@ -1,0 +1,18 @@
+["protostar.config"]
+protostar_version = "0.4.2"
+
+["protostar.project"]
+libs_path = "lib"
+
+["protostar.contracts"]
+ERC20MESH = [
+    "./contracts/ERC20MESH.cairo",
+]
+
+Minter = [
+    "./contracts/Minter.cairo",
+]
+
+VotingEscrow = [
+    "./contracts/VotingEscrow.cairo",
+]
