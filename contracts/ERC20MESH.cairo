@@ -20,24 +20,29 @@ from starkware.cairo.common.uint256 import (
 )
 from starkware.starknet.common.syscalls import get_block_timestamp
 
+//
+// Events
+//
 
-const YEAR = 86400 * 365;
+@event
+func Transfer(_from: felt, _to: felt, _value: Uint256) {
+}
 
-// Allocation:
-// =========
-// * shareholders - 30%
-// * emplyees - 3%
-// * DAO-controlled reserve - 5%
-// * Early users - 5%
-// == 43% ==
-// left for inflation: 57%
-// https://resources.curve.fi/base-features/understanding-tokenomics
-const INITIAL_SUPPLY = 1303030303;  // 43% of 3.03 billion total supply
-const INITAL_RATE = 8714335457889396736;  // 274815283 * (10 ** 18) / YEAR  // leading to 43% premine
-const RATE_REDUCTION_TIME = YEAR;
-const RATE_REDUCTION_COEFFICIENT = 1189207115002721024;  // 2 ** (1/4) * (10 ** 18)
-const RATE_DENOMINATOR = 10 ** 18;
-const INFLATION_DELAY = 86400;
+@event
+func Approval(_owner: felt, _spender: felt, _value: Uint256) {
+}
+
+@event
+func UpdateMiningParameters(time: felt, rate: Uint256, supply: Uint256) {
+}
+
+@event 
+func SetMinter(minter: felt) {
+}
+
+// @event
+// func SetOwner(owner: felt) {
+// }
 
 //
 // Storage
@@ -58,11 +63,6 @@ func _symbol() -> (res: felt){
 func _decimals() -> (res: felt){
 }
 
-// @notice Token Total Supply
-@storage_var
-func total_supply() -> (res: Uint256){
-}
-
 // @notice Token Balances for each account
 // @param account Account address for which balance is stored
 @storage_var
@@ -76,6 +76,11 @@ func balances(account: felt) -> (res: Uint256){
 func allowances(owner: felt, spender: felt) -> (res: Uint256){
 }
 
+// @notice Token Total Supply
+@storage_var
+func total_supply() -> (res: Uint256){
+}
+
 // @notice Account which can mint new tokens
 @storage_var
 func _minter() -> (address: felt){
@@ -85,6 +90,28 @@ func _minter() -> (address: felt){
 @storage_var
 func _owner() -> (address: felt){
 }
+
+const YEAR = 86400 * 365;
+
+// Allocation:
+// =========
+// * shareholders - 30%
+// * emplyees - 3%
+// * DAO-controlled reserve - 5%
+// * Early users - 5%
+// == 43% ==
+// left for inflation: 57%
+// https://resources.curve.fi/base-features/understanding-tokenomics
+
+// Supply paramters
+const INITIAL_SUPPLY = 1303030303;  // 43% of 3.03 billion total supply
+const INITAL_RATE = 8714335457889396736;  // 274815283 * (10 ** 18) / YEAR  // leading to 43% premine
+const RATE_REDUCTION_TIME = YEAR;
+const RATE_REDUCTION_COEFFICIENT = 1189207115002721024;  // 2 ** (1/4) * (10 ** 18)
+const RATE_DENOMINATOR = 10 ** 18;
+const INFLATION_DELAY = 86400;
+
+// Supply variables
 
 // @notice Mining Epoch
 @storage_var
@@ -137,6 +164,7 @@ func constructor{
     local initial_supply: Uint256;
     assert initial_supply = Uint256(INITIAL_SUPPLY * (10 ** 18), 0);
     _mint_initial(initial_owner, initial_supply);
+    Transfer.emit(_from=0, _to=initial_owner, _value=initial_supply);
     
     let (current_timestamp) = get_block_timestamp();
     _start_epoch_time.write(Uint256(current_timestamp + INFLATION_DELAY - RATE_REDUCTION_TIME, 0));
@@ -402,6 +430,7 @@ func transferFrom{
     let (new_allowance: Uint256) = uint256_sub(caller_allowance, amount);
     allowances.write(sender, caller, new_allowance);
 
+    Transfer.emit(sender, recipient, amount);
     // Cairo equivalent to 'return (true)';
     return (success=1);
 }
@@ -430,6 +459,7 @@ func approve{
     assert is_mul_high_0 = 1;
     _approve(caller, spender, amount);
 
+    Approval.emit(caller, spender, amount);
     // Cairo equivalent to 'return (true)'
     return (success=1);
 }
@@ -518,6 +548,8 @@ func mint{
         tempvar range_check_ptr = range_check_ptr;
     }
     _mint(recipient, amount, current_timestamp);
+    
+    Transfer.emit(0, recipient, amount);
     return (success=1);
 }
 
@@ -530,8 +562,10 @@ func burn{
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
     }(amount: Uint256) -> (success: felt){
-    let (caller) = get_caller_address();
+    alloc_locals;
+    let (local caller) = get_caller_address();
     _burn(caller, amount);
+    Transfer.emit(caller, 0, amount);
     return (success=1);
 }
 
@@ -545,25 +579,12 @@ func set_minter{
         range_check_ptr
     }(new_minter: felt) -> (new_minter: felt){
     _only_owner();
+    // TODO: This should rather be assert_zero(old_minter)
+    // https://github.com/curvefi/curve-dao-contracts/blob/master/contracts/ERC20CRV.vy#L233
     assert_not_zero(new_minter);
     _minter.write(new_minter);
+    SetMinter.emit(new_minter);
     return (new_minter=new_minter);
-}
-
-// @notice Set the new name and symbol
-// @dev only owner can call
-// @param new_name New token name
-// @param new_symbol New token symbol
-@external
-func set_name_symbol{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(new_name: felt, new_symbol: felt){
-    _only_owner();
-    _name.write(new_name);
-    _symbol.write(new_symbol);
-    return ();
 }
 
 // @notice Set the new owner
@@ -580,6 +601,22 @@ func transfer_ownership{
     assert_not_zero(new_owner);
     _owner.write(new_owner);
     return (new_owner=new_owner);
+}
+
+// @notice Set the new name and symbol
+// @dev only owner can call
+// @param new_name New token name
+// @param new_symbol New token symbol
+@external
+func set_name_symbol{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }(new_name: felt, new_symbol: felt){
+    _only_owner();
+    _name.write(new_name);
+    _symbol.write(new_symbol);
+    return ();
 }
 
 // @notice Update mining rate and supply at the start of the epoch
@@ -686,10 +723,6 @@ func _mint{
     return ();
 }
 
-//
-// Internals
-//
-
 func _mint_initial{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -730,6 +763,8 @@ func _transfer{
     // overflow is not possible because sum is guaranteed by mint to be less than total supply
     let (new_recipient_balance, _: Uint256) = uint256_add(recipient_balance, amount);
     balances.write(recipient, new_recipient_balance);
+
+    Transfer.emit(sender, recipient, amount);
     return ();
 }
 
@@ -844,6 +879,9 @@ func _update_mining_parameters{
     _mining_epoch.write(next_mining_epoch);
     _rate.write(next_rate);
     _start_epoch_supply.write(next_epoch_supply);
+
+    let (current_timestamp) = get_block_timestamp();
+    UpdateMiningParameters.emit(current_timestamp, next_rate, next_epoch_supply);
 
     return ();
 }

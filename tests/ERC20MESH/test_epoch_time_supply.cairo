@@ -10,6 +10,7 @@ from starkware.starknet.common.syscalls import get_block_timestamp
 
 const WEEK = 86400 * 7;
 const YEAR = 365 * 86400;
+const RATE_REDUCTION_TIME = 86400 * 365; // 1 Year
 
 @external
 func __setup__{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){
@@ -106,6 +107,59 @@ func test_future_epoch_time_write{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*
     let (epoch_time_after_updated) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address);
     let (expected_epoch_time_updated, _) = uint256_add(creation_time, Uint256(YEAR, 0));
     assert epoch_time_after_updated = expected_epoch_time_updated;
+
+    return ();
+}
+
+@external
+func test_update_mining_parameters{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){
+    alloc_locals;
+
+    local erc20_mesh_address;
+    local deployer_address;
+
+    %{
+        ids.erc20_mesh_address = context.erc20_mesh_address
+        ids.deployer_address = context.deployer_address
+    %}
+
+    let (creation_time) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address);
+
+    // Set block timestamp to before new epoch
+    %{ stop_warp = warp(86400 * 365 + 86401, target_contract_address=ids.erc20_mesh_address) %}
+    %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.erc20_mesh_address) %}
+    let next_timestamp = 86400 * 365 + 86401 + WEEK;
+    IERC20MESH.update_mining_parameters(contract_address=erc20_mesh_address);
+    %{ stop_prank() %}
+    %{ stop_warp() %}
+    
+    let (next_epoch_time) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address);
+    let (expected_next_epoch_time, _) = uint256_add(creation_time, Uint256(RATE_REDUCTION_TIME, 0));
+    assert next_epoch_time = expected_next_epoch_time;
+
+    return ();
+}
+
+@external
+func test_start_epoch_time_write_same_epoch{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){
+    alloc_locals;
+
+    local erc20_mesh_address;
+    local deployer_address;
+
+    %{
+        ids.erc20_mesh_address = context.erc20_mesh_address
+        ids.deployer_address = context.deployer_address
+    %}
+
+    // Set block timestamp to 1 year after creation (2 years in)
+    %{ stop_warp = warp(86400 * 730, target_contract_address=ids.erc20_mesh_address) %}
+    // Calling `start_epoch_token_write` within the same epoch should not raise
+    %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.erc20_mesh_address) %}
+    let (epoch_time_updated) = IERC20MESH.start_epoch_time_write(contract_address=erc20_mesh_address);
+    let (epoch_time_updated) = IERC20MESH.start_epoch_time_write(contract_address=erc20_mesh_address);
+    %{ stop_warp() %}
+    %{ stop_prank() %}
 
     return ();
 }
