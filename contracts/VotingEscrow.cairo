@@ -758,10 +758,16 @@ func increase_amount{
     _assert_not_contract(caller);
     let (locked: LockedBalance) = _locked.read(caller);
     let (is_value_greater_than_zero) =  uint256_lt(Uint256(0, 0), value);
-    assert_not_zero(is_value_greater_than_zero);
-    let (is_locked_amount_greater_than_zero) =  uint256_lt(Uint256(0, 0), locked.amount);  // "No existing lock found"
-    assert_not_zero(is_locked_amount_greater_than_zero);
-    assert_lt(current_timestamp, locked.end_ts);   // "Cannot add to expired lock. Withdraw"
+    with_attr error_message("Need non-zero value"){
+        assert_not_zero(is_value_greater_than_zero);
+    }
+    let (is_locked_amount_greater_than_zero) =  uint256_lt(Uint256(0, 0), locked.amount);
+    with_attr error_message("No existing lock found"){
+        assert_not_zero(is_locked_amount_greater_than_zero);
+    }
+    with_attr error_message("Cannot add to expired lock. Withdraw"){
+        assert_lt(current_timestamp, locked.end_ts);
+    }
 
     _deposit_for(caller, value, 0, locked, INCREASE_LOCK_AMOUNT);
     _unlock_reentrancy();
@@ -776,7 +782,7 @@ func increase_unlock_time{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
-    }(_unlock_time: felt){
+    }(unlock_time: felt){
     alloc_locals;
 
     let (current_timestamp) = get_block_timestamp();
@@ -784,16 +790,24 @@ func increase_unlock_time{
     _check_and_lock_reentrancy();
     let(caller) = get_caller_address();
     _assert_not_contract(caller);
-    let (q, r) = unsigned_div_rem(_unlock_time, WEEK);
-    let unlock_time = q * WEEK;  // Locktime is rounded down to weeks
+    let (q, r) = unsigned_div_rem(unlock_time, WEEK);
+    let unlock_time_rounded = q * WEEK;  // Locktime is rounded down to weeks
     let (locked: LockedBalance) = _locked.read(caller);
-    assert_lt(current_timestamp, locked.end_ts);  // "Lock Expired"
-    let (is_locked_amount_greater_than_zero) =  uint256_lt(Uint256(0, 0), locked.amount);  // "No existing lock found"
-    assert_not_zero(is_locked_amount_greater_than_zero);
-    assert_lt(locked.end_ts, unlock_time);  // "Can only increase lock duration"
-    assert_le(unlock_time, current_timestamp + MAXTIME);  // "Voting lock can be 4 years max"
+    let (is_locked_amount_greater_than_zero) =  uint256_lt(Uint256(0, 0), locked.amount);
+    with_attr error_message("Nothing is locked"){
+        assert_not_zero(is_locked_amount_greater_than_zero);
+    }
+    with_attr error_message("Lock Expired"){
+        assert_lt(current_timestamp, locked.end_ts);
+    }
+    with_attr error_message("Can only increase lock duration"){
+        assert_lt(locked.end_ts, unlock_time_rounded);
+    }
+    with_attr error_message("Voting lock can be 4 years max"){
+        assert_le(unlock_time_rounded, current_timestamp + MAXTIME);
+    }
 
-    _deposit_for(caller, Uint256(0, 0), unlock_time, locked, INCREASE_UNLOCK_TIME);
+    _deposit_for(caller, Uint256(0, 0), unlock_time_rounded, locked, INCREASE_UNLOCK_TIME);
     _unlock_reentrancy();
     return ();
 }
@@ -847,17 +861,16 @@ func _checkpoint{
 
     let (epoch: felt) = _epoch.read();
 
-    let (local u_old, local u_new, local old_dslope, local new_dslope) = _get_slopes_and_biases(address, current_timestamp, current_block, old_locked, new_locked);
+    let (local u_old, local u_new, local old_dslope, local new_dslope) = _get_slopes_and_biases_checkpoint(address, current_timestamp, current_block, old_locked, new_locked);
 
-    let (last_point) = _get_last_point(epoch=epoch, current_timestamp=current_timestamp, current_block=current_block);
+    let (last_point) = _get_last_point_checkpoint(epoch=epoch, current_timestamp=current_timestamp, current_block=current_block);
 
-    // TODO: Check whether here conversion to Uint256 is needed or not
     let last_checkpoint = last_point.ts;
     // initial_last_point is used for extrapolation to calculate block number
     // (approximately, for *At methods) and save them
     // as we cannot figure that out exactly from inside the contract
     let initial_last_point = Point(bias=last_point.bias, slope=last_point.slope, ts=last_point.ts, blk=last_point.blk);
-    let (block_slope) = _get_block_slope(last_point, current_timestamp, current_block);
+    let (block_slope) = _get_block_slope_checkpoint(last_point, current_timestamp, current_block);
 
     // // Go over weeks to fill history and calculate what the current point is
     let (q_i, r_i) = unsigned_div_rem(last_checkpoint, WEEK);
@@ -866,7 +879,7 @@ func _checkpoint{
     _epoch.write(required_epoch);
     
     // Now point_history is filled until t=now
-    let (local point_to_write: Point) = _get_point_to_write(address, current_point, u_new, u_old);
+    let (local point_to_write: Point) = _get_point_to_write_checkpoint(address, current_point, u_new, u_old);
 
     // Record the changed point into history
     let (epoch: felt) = _epoch.read();
@@ -876,8 +889,8 @@ func _checkpoint{
         // Schedule the slope changes (slope is going down)
         // We subtract new_user_slope from [new_locked.end]
         // and add old_user_slope to [old_locked.end]
-        _schedule_slope_changes_old(current_timestamp, old_locked, new_locked, u_old, u_new, old_dslope);
-        _schedule_slope_changes_new(current_timestamp, old_locked, new_locked, u_new, new_dslope);
+        _schedule_slope_changes_old_checkpoint(current_timestamp, old_locked, new_locked, u_old, u_new, old_dslope);
+        _schedule_slope_changes_new_checkpoint(current_timestamp, old_locked, new_locked, u_new, new_dslope);
 
         // Now handle user history
         let (previous_user_epoch) = _user_point_epoch.read(address);
@@ -900,7 +913,7 @@ func _checkpoint{
     return ();
 }
 
-func _get_slopes_and_biases{
+func _get_slopes_and_biases_checkpoint{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
@@ -908,10 +921,10 @@ func _get_slopes_and_biases{
     alloc_locals;
 
     if (address != 0) {
-        let (local u_old_temp) = _get_u_old(current_timestamp, current_block, old_locked);
-        let (local u_new_temp) = _get_u_new(current_timestamp, current_block, new_locked);
+        let (local u_old_temp) = _get_u_point_checkpoint(current_timestamp, current_block, old_locked);
+        let (local u_new_temp) = _get_u_point_checkpoint(current_timestamp, current_block, new_locked);
 
-        let (old_dslope_temp, new_dslope_temp) = _get_dslope(old_locked, new_locked);
+        let (old_dslope_temp, new_dslope_temp) = _get_dslope_checkpoint(old_locked, new_locked);
 
         return (u_old=u_old_temp, u_new=u_new_temp, old_dslope=old_dslope_temp, new_dslope=new_dslope_temp);
     } else {
@@ -919,51 +932,27 @@ func _get_slopes_and_biases{
     }
 }
 
-func _get_u_old{
+func _get_u_point_checkpoint{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
-    }(current_timestamp: felt, current_block: felt, old_locked: LockedBalance) -> (u_old: Point) {
+    }(current_timestamp: felt, current_block: felt, locked: LockedBalance) -> (u_point: Point) {
     alloc_locals;
     // Calculate slopes and biases
     // Kept at zero when they have to
-    // TODO: Check if using is_le correct here
-    let is_old_locked_end_greater_than_current_timestamp = is_le(current_timestamp, old_locked.end_ts);
-    let (is_old_locked_amount_greater_than_zero) =  uint256_lt(Uint256(0, 0), old_locked.amount);
-    if (is_old_locked_end_greater_than_current_timestamp * is_old_locked_amount_greater_than_zero == 1) {
-        // TODO: Is accessing low correct here??
-        let (u_old_slope, _) =  unsigned_div_rem(old_locked.amount.low, MAXTIME);
-        let old_time_difference = old_locked.end_ts - current_timestamp;
-        // u_old.bias = u_old_slope * old_time_difference;
-        // u_old.slope = u_old_slope;
+    let is_locked_end_greater_than_current_timestamp = is_le(current_timestamp, locked.end_ts);
+    let (is_locked_amount_greater_than_zero) =  uint256_lt(Uint256(0, 0), locked.amount);
+    if (is_locked_end_greater_than_current_timestamp * is_locked_amount_greater_than_zero == 1) {
+        let (u_point_slope, _) =  unsigned_div_rem(locked.amount.low, MAXTIME);
+        let time_difference = locked.end_ts - current_timestamp;
 
-        return (u_old=Point(bias=u_old_slope * old_time_difference, slope=u_old_slope, ts=current_timestamp, blk=current_block));
+        return (u_point=Point(bias=u_point_slope * time_difference, slope=u_point_slope, ts=current_timestamp, blk=current_block));
     } else {
-        return (u_old=Point(bias=0, slope=0, ts=current_timestamp, blk=current_block));
+        return (u_point=Point(bias=0, slope=0, ts=current_timestamp, blk=current_block));
     }
 }
 
-func _get_u_new{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(current_timestamp: felt, current_block: felt, new_locked: LockedBalance) -> (u_new: Point) {
-    alloc_locals;
-    let is_new_locked_end_greater_than_current_timestamp = is_le(current_timestamp, new_locked.end_ts);
-    let (is_new_locked_amount_greater_than_zero) =  uint256_lt(Uint256(0, 0), new_locked.amount);
-    // if is_new_locked_greater_than_current == 1 && is_new_locked_amount_greater_than_zero == 1:
-    if (is_new_locked_end_greater_than_current_timestamp * is_new_locked_amount_greater_than_zero == 1) {
-        // TODO: Is accessing low correct here??
-        let (u_new_slope: felt, _) = unsigned_div_rem(new_locked.amount.low, MAXTIME);
-        let new_time_difference = new_locked.end_ts - current_timestamp;
-
-        return (u_new=Point(bias=u_new_slope * new_time_difference, slope=u_new_slope, ts=current_timestamp, blk=current_block));
-    } else {
-        return (u_new=Point(bias=0, slope=0, ts=current_timestamp, blk=current_block));
-    }
-}
-
-func _get_last_point{
+func _get_last_point_checkpoint{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
@@ -980,7 +969,7 @@ func _get_last_point{
     }
 }
 
-func _get_block_slope{
+func _get_block_slope_checkpoint{
         syscall_ptr : felt*,
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
@@ -1000,7 +989,7 @@ func _get_block_slope{
     // But that's ok b/c we know the block in such case
 }
 
-func _get_dslope{
+func _get_dslope_checkpoint{
         syscall_ptr : felt*,
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
@@ -1023,7 +1012,7 @@ func _get_dslope{
     }
 }
 
-func _get_point_to_write{
+func _get_point_to_write_checkpoint{
         syscall_ptr : felt*,
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
@@ -1067,7 +1056,7 @@ func _get_point_to_write{
     }
 }
 
-func _schedule_slope_changes_old{
+func _schedule_slope_changes_old_checkpoint{
         syscall_ptr : felt*,
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
@@ -1092,7 +1081,7 @@ func _schedule_slope_changes_old{
     }
 }
 
-func _schedule_slope_changes_new{
+func _schedule_slope_changes_new_checkpoint{
         syscall_ptr : felt*,
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
@@ -1127,67 +1116,74 @@ func _calculate_current_point{
     if (current_index == 255) {
         return (new_point=last_point, new_epoch=epoch);
     }
-
-    local d_slope;
-    let new_t_i_temp = t_i + WEEK;
-    local new_t_i;
-    let (current_timestamp) = get_block_timestamp();
-    let is_new_t_i_greater_than_current_timestamp = is_le(current_timestamp, new_t_i_temp);
-    if (is_new_t_i_greater_than_current_timestamp == 1) {
-        new_t_i = current_timestamp;
-        d_slope = 0;
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
-    } else {
-        new_t_i = new_t_i_temp;
-        let (required_dslope) = _slope_changes.read(new_t_i);
-        d_slope = required_dslope;
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
-    }
     
-    local new_bias = last_point.bias - (last_point.slope * (new_t_i - last_checkpoint));
-    local new_slope = last_point.slope + d_slope;
+    let (current_timestamp) = get_block_timestamp();
+    let (d_slope, new_t_i) = _get_dslope_and_new_t_i(t_i, current_timestamp);
 
-    let is_last_point_bias_less_than_0 = is_le(last_point.bias, 0);
-    if (is_last_point_bias_less_than_0 == 1) {
-        new_bias = 0;
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
-    } else {
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
-    }
-
-    let is_last_point_slope_less_than_0 = is_le(last_point.slope, 0);
-    if (is_last_point_slope_less_than_0 == 1) {
-        new_slope = 0;
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
-    } else {
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
-    }
+    let (new_bias) = _get_new_bias_current_point(last_point, new_t_i, last_checkpoint);
+    let (new_slope) = _get_new_slope_current_point(last_point, d_slope);
 
     let new_last_checkpoint = new_t_i;
     let new_ts = new_t_i;
-    local new_blk = initial_last_point.blk + block_slope * (t_i - initial_last_point.ts) / MULTIPLIER;
+    local new_blk;
     let new_epoch = epoch + 1;
     if (new_t_i == current_timestamp) {
         let (current_block) = get_block_number();
-        new_blk = current_block;
+        assert new_blk = current_block;
         let new_point = Point(bias=new_bias, slope=new_slope, ts=new_ts, blk=new_blk);
         return (new_point=new_point, new_epoch=new_epoch);
     } else {
+        assert new_blk = initial_last_point.blk + block_slope * (t_i - initial_last_point.ts) / MULTIPLIER;
         let new_point = Point(bias=new_bias, slope=new_slope, ts=new_ts, blk=new_blk);
         _point_history.write(new_epoch, new_point);
         return _calculate_current_point(current_index + 1, new_t_i, new_point, initial_last_point, new_last_checkpoint, block_slope, new_epoch);
+    }
+}
+
+func _get_dslope_and_new_t_i{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }(t_i: felt, current_timestamp: felt) -> (d_slope: felt, new_t_i: felt) {
+    alloc_locals;
+    
+    let new_t_i = t_i + WEEK;
+    let is_new_t_i_greater_than_current_timestamp = is_le(current_timestamp, new_t_i);
+    if (is_new_t_i_greater_than_current_timestamp == 1) {
+        return (d_slope=0, new_t_i=current_timestamp);
+    } else {
+        let (required_dslope) = _slope_changes.read(new_t_i);
+        return (d_slope=required_dslope, new_t_i=new_t_i);
+    }
+}
+
+func _get_new_bias_current_point{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }(last_point: Point, new_t_i: felt, last_checkpoint: felt) -> (new_bias: felt) {
+    alloc_locals;
+    
+    let is_last_point_bias_less_than_0 = is_le(last_point.bias, 0);
+    if (is_last_point_bias_less_than_0 == 1) {
+        return (new_bias=0);
+    } else {
+        return (new_bias=last_point.bias - (last_point.slope * (new_t_i - last_checkpoint)));
+    }
+}
+
+func _get_new_slope_current_point{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }(last_point: Point, d_slope: felt) -> (new_slope: felt) {
+    alloc_locals;
+    
+    let is_last_point_slope_less_than_0 = is_le(last_point.slope, 0);
+    if (is_last_point_slope_less_than_0 == 1) {
+        return (new_slope=0);
+    } else {
+        return (new_slope=last_point.slope + d_slope);
     }
 }
 
@@ -1209,12 +1205,8 @@ func _deposit_for{
     _supply.write(new_supply);
     let (new_locked_amount: Uint256, is_overflow_1) = uint256_add(locked_balance.amount, value);
     assert (is_overflow_1) = 0;
-    tempvar new_unlock_time;
-    if (unlock_time != 0) {
-        assert new_unlock_time = unlock_time;
-    } else {
-        assert new_unlock_time = locked_balance.end_ts;
-    }
+
+    let (new_unlock_time) = _get_new_unlock_time(unlock_time, locked_balance);
     let new_locked_balance = LockedBalance(amount=new_locked_amount, end_ts=new_unlock_time);
     _locked.write(address, new_locked_balance);
 
@@ -1224,21 +1216,39 @@ func _deposit_for{
     // locked_balance.end_ts > block.timestamp (always)
     _checkpoint(address, locked_balance, new_locked_balance);
     
+    _transfer_amount_if_nonzero(value, address);
+
+    return ();
+}
+
+func _get_new_unlock_time{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }(unlock_time: felt, locked_balance: LockedBalance) -> (new_unlock_time: felt){
+    if (unlock_time != 0) {
+        return (new_unlock_time=unlock_time);
+    } else {
+        return (new_unlock_time=locked_balance.end_ts);
+    }
+}
+
+func _transfer_amount_if_nonzero{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }(value: Uint256, address: felt){
     let (is_value_equal_to_zero) =  uint256_eq(value, Uint256(0, 0));
     let (token) = _token.read();
     let (self_address) = get_contract_address();
+    // If value is not zero
     if (is_value_equal_to_zero == 0) {
-        ERC20.transferFrom(contract_address=token, sender=address, recipient=self_address, amount=value);
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
+        let (success) = ERC20.transferFrom(contract_address=token, sender=address, recipient=self_address, amount=value);
+        assert success = 1;
+        return ();
     } else {
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
+        return ();
     }
-
-    return ();
 }
 
 

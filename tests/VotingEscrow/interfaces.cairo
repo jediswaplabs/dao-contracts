@@ -2,6 +2,11 @@
 
 from starkware.cairo.common.uint256 import Uint256
 
+struct LockedBalance{
+    amount : Uint256,
+    end_ts : felt,
+}
+
 @contract_interface
 namespace IERC20MESH {
     
@@ -84,5 +89,17 @@ namespace IVotingEscrow {
     }
 
     func create_lock(value: Uint256, unlock_time: felt){
+    }
+
+    func increase_amount(value: Uint256){
+    }
+
+    func increase_unlock_time(unlock_time: felt){
+    }
+
+    func locked(address: felt) -> (balance: LockedBalance){
+    }
+
+    func checkpoint() -> (){
     }
 }
