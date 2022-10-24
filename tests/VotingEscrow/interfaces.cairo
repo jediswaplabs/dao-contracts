@@ -7,6 +7,13 @@ struct LockedBalance{
     end_ts : felt,
 }
 
+struct Point{
+    bias: felt,
+    slope: felt,
+    ts: felt,
+    blk: felt,
+}
+
 @contract_interface
 namespace IERC20MESH {
     
@@ -97,9 +104,21 @@ namespace IVotingEscrow {
     func increase_unlock_time(unlock_time: felt){
     }
 
-    func locked(address: felt) -> (balance: LockedBalance){
+    func withdraw(){
     }
 
     func checkpoint() -> (){
+    }
+
+    func locked(address: felt) -> (balance: LockedBalance){
+    }
+    
+    func user_point_epoch(address: felt) -> (epoch: felt){
+    }
+
+    func point_history(epoch: felt) -> (point: Point){
+    }
+
+    func epoch() -> (epoch: felt){
     }
 }

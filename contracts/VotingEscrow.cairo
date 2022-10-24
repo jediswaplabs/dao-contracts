@@ -826,7 +826,9 @@ func withdraw{
     _check_and_lock_reentrancy();
     let(caller) = get_caller_address();
     let (locked: LockedBalance) = _locked.read(caller);
-    assert_le(locked.end_ts, current_timestamp);  // "The lock didn't expire"
+    with_attr error_message("The lock didn't expire"){
+        assert_le(locked.end_ts, current_timestamp);
+    }
     let empty_locked_balance = LockedBalance(amount=Uint256(0,0), end_ts=0);
     _locked.write(caller, empty_locked_balance);
     let (supply_before: Uint256) = _supply.read();
