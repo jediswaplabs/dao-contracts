@@ -101,6 +101,9 @@ namespace IVotingEscrow {
     func increase_amount(value: Uint256){
     }
 
+    func deposit_for(address: felt, value: Uint256){
+    }
+
     func increase_unlock_time(unlock_time: felt){
     }
 
@@ -116,9 +119,18 @@ namespace IVotingEscrow {
     func user_point_epoch(address: felt) -> (epoch: felt){
     }
 
+    func user_point_history(address: felt, epoch: felt) -> (point: Point){
+    }
+
     func point_history(epoch: felt) -> (point: Point){
     }
 
     func epoch() -> (epoch: felt){
+    }
+
+    func supply() -> (res: Uint256){
+    }
+
+    func slope_changes(ts: felt) -> (change: felt){
     }
 }

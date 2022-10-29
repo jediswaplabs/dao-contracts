@@ -693,10 +693,16 @@ func deposit_for{
     _check_and_lock_reentrancy();
     let (locked: LockedBalance) = _locked.read(address);
     let (is_value_greater_than_zero) =  uint256_lt(Uint256(0, 0), value);
-    assert_not_zero(is_value_greater_than_zero);
-    let (is_locked_amount_greater_than_zero) =  uint256_lt(Uint256(0, 0), locked.amount);  // "No existing lock found"
-    assert_not_zero(is_locked_amount_greater_than_zero);
-    assert_lt(current_timestamp, locked.end_ts);  // "Cannot add to expired lock. Withdraw"
+    with_attr error_message("Need non-zero value"){
+        assert_not_zero(is_value_greater_than_zero);
+    }
+    let (is_locked_amount_greater_than_zero) =  uint256_lt(Uint256(0, 0), locked.amount);
+    with_attr error_message("No existing lock found"){
+        assert_not_zero(is_locked_amount_greater_than_zero);
+    }
+    with_attr error_message("Cannot add to expired lock. Withdraw"){
+        assert_lt(current_timestamp, locked.end_ts);
+    }
 
     _deposit_for(address, value, 0, locked, DEPOSIT_FOR_TYPE);
     _unlock_reentrancy();
@@ -849,8 +855,8 @@ func withdraw{
 
 // @dev Record global and per-user data to checkpoint
 // @param address User's wallet address. No user checkpoint if 0x0
-// @param old_locked Pevious locked amount / } lock time for the user
-// @param new_locked New locked amount / } lock time for the user
+// @param old_locked Previous locked amount / lock time for the user
+// @param new_locked New locked amount / lock time for the user
 func _checkpoint{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -874,7 +880,7 @@ func _checkpoint{
     let initial_last_point = Point(bias=last_point.bias, slope=last_point.slope, ts=last_point.ts, blk=last_point.blk);
     let (block_slope) = _get_block_slope_checkpoint(last_point, current_timestamp, current_block);
 
-    // // Go over weeks to fill history and calculate what the current point is
+    // Go over weeks to fill history and calculate what the current point is
     let (q_i, r_i) = unsigned_div_rem(last_checkpoint, WEEK);
     let t_i = q_i * WEEK;
     let (current_point, required_epoch) = _calculate_current_point(0, t_i, last_point, initial_last_point, last_checkpoint, block_slope, epoch);
@@ -1070,7 +1076,7 @@ func _schedule_slope_changes_old_checkpoint{
         // old_dslope was <something> - u_old.slope, so we cancel that
         if (new_locked.end_ts == old_locked.end_ts) {
             // It was a new deposit, not extension
-            _slope_changes.write(old_locked.end_ts, old_dslope - u_new.slope);
+            _slope_changes.write(old_locked.end_ts, old_dslope + u_old.slope - u_new.slope);
 
             return ();
         } else {
