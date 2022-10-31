@@ -230,10 +230,6 @@ func test_create_lock{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
     assert current_user_point_history.ts = 86400 * 365;
     assert current_user_point_history.blk = 1;
 
-    // Validate slope changes
-    let (current_slope_changes) = IVotingEscrow.slope_changes(contract_address=voting_escrow, ts=32054400);
-    assert current_slope_changes = expected_slope;
-
     return ();
 }
 

@@ -1101,6 +1101,7 @@ func _schedule_slope_changes_new_checkpoint{
         let is_new_locked_end_less_than_equal_to_old_locked_end = is_le(new_locked.end_ts, old_locked.end_ts);
         if (is_new_locked_end_less_than_equal_to_old_locked_end != 1) {
             // old slope disappeared at this point
+            // TODO: double check new_dslope is 0, so slope is negative?
             _slope_changes.write(new_locked.end_ts, new_dslope - u_new.slope);
             return ();
         } else {
