@@ -436,14 +436,13 @@ func locked__end{
 // @notice Get the voting power for `caller` at timestamp `_t`
 // @dev Adheres to the ERC20 `balanceOf` interface for compatibility
 // @param address Address of the user wallet
-// @param _t Epoch time to return voting power at
 // @return bias User voting power
 @view
 func balanceOf{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
-    }(address: felt, _t: felt) -> (bias: felt){
+    }(address: felt) -> (bias: felt){
     alloc_locals;
     let (epoch) = _user_point_epoch.read(address);
     let is_epoch_not_zero = is_not_zero(epoch);
@@ -451,6 +450,7 @@ func balanceOf{
         return (bias=0);
     } else {
         let (last_point: Point) = _user_point_history.read(address, epoch);
+        let (_t) = get_block_timestamp();
         let required_bias = last_point.bias - (last_point.slope * (_t - last_point.ts));
         // TODO: Doubt, isn't it incorrect as this is less than equal to rather than less than
         let is_required_bias_less_than_zero = is_le(required_bias, 0);
@@ -536,15 +536,15 @@ func balanceOfAt{
 
 // @notice Calculate total voting power
 // @dev Adheres to the ERC20 `balanceOf` interface for compatibility
-// @param t Epoch time to return voting power at
 // @return bias Total voting power
 @view
 func totalSupply{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
-    }(t: felt) -> (bias: felt){
+    }() -> (bias: felt){
     alloc_locals;
+    let (t) = get_block_timestamp();
     let (epoch) = _epoch.read();
     let (last_point: Point) = _point_history.read(epoch);
     return _supply_at(last_point, t);
@@ -887,7 +887,7 @@ func _checkpoint{
     _epoch.write(required_epoch);
     
     // Now point_history is filled until t=now
-    let (local point_to_write: Point) = _get_point_to_write_checkpoint(address, current_point, u_new, u_old);
+    let (local point_to_write: Point) = _get_point_to_write_checkpoint(address, current_point, u_old, u_new);
 
     // Record the changed point into history
     let (epoch: felt) = _epoch.read();
@@ -1076,11 +1076,13 @@ func _schedule_slope_changes_old_checkpoint{
         // old_dslope was <something> - u_old.slope, so we cancel that
         if (new_locked.end_ts == old_locked.end_ts) {
             // It was a new deposit, not extension
-            _slope_changes.write(old_locked.end_ts, old_dslope + u_old.slope - u_new.slope);
+            let slope_temp = old_dslope + u_old.slope - u_new.slope;
+            _slope_changes.write(old_locked.end_ts, slope_temp);
 
             return ();
         } else {
-            _slope_changes.write(old_locked.end_ts, old_dslope + u_old.slope);
+            let slope_temp = old_dslope + u_old.slope;
+            _slope_changes.write(old_locked.end_ts, slope_temp);
 
             return();
         }
@@ -1102,7 +1104,8 @@ func _schedule_slope_changes_new_checkpoint{
         if (is_new_locked_end_less_than_equal_to_old_locked_end != 1) {
             // old slope disappeared at this point
             // TODO: double check new_dslope is 0, so slope is negative?
-            _slope_changes.write(new_locked.end_ts, new_dslope - u_new.slope);
+            let slope_temp = new_dslope - u_new.slope;
+            _slope_changes.write(new_locked.end_ts, slope_temp);
             return ();
         } else {
             return ();
@@ -1124,29 +1127,30 @@ func _calculate_current_point{
 
     if (current_index == 255) {
         return (new_point=last_point, new_epoch=epoch);
+    } else {
+        let (current_timestamp) = get_block_timestamp();
+        let (d_slope, new_t_i) = _get_dslope_and_new_t_i(t_i, current_timestamp);
+
+        let (new_bias) = _get_new_bias_current_point(last_point, new_t_i, last_checkpoint);
+        let (new_slope) = _get_new_slope_current_point(last_point, d_slope);
+
+        let new_last_checkpoint = new_t_i;
+        let new_ts = new_t_i;
+        local new_blk;
+        let new_epoch = epoch + 1;
+        if (new_t_i == current_timestamp) {
+            let (current_block) = get_block_number();
+            assert new_blk = current_block;
+            let new_point = Point(bias=new_bias, slope=new_slope, ts=new_ts, blk=new_blk);
+            return (new_point=new_point, new_epoch=new_epoch);
+        } else {
+            assert new_blk = initial_last_point.blk + block_slope * (t_i - initial_last_point.ts) / MULTIPLIER;
+            let new_point = Point(bias=new_bias, slope=new_slope, ts=new_ts, blk=new_blk);
+            _point_history.write(new_epoch, new_point);
+            return _calculate_current_point(current_index + 1, new_t_i, new_point, initial_last_point, new_last_checkpoint, block_slope, new_epoch);
+        }
     }
     
-    let (current_timestamp) = get_block_timestamp();
-    let (d_slope, new_t_i) = _get_dslope_and_new_t_i(t_i, current_timestamp);
-
-    let (new_bias) = _get_new_bias_current_point(last_point, new_t_i, last_checkpoint);
-    let (new_slope) = _get_new_slope_current_point(last_point, d_slope);
-
-    let new_last_checkpoint = new_t_i;
-    let new_ts = new_t_i;
-    local new_blk;
-    let new_epoch = epoch + 1;
-    if (new_t_i == current_timestamp) {
-        let (current_block) = get_block_number();
-        assert new_blk = current_block;
-        let new_point = Point(bias=new_bias, slope=new_slope, ts=new_ts, blk=new_blk);
-        return (new_point=new_point, new_epoch=new_epoch);
-    } else {
-        assert new_blk = initial_last_point.blk + block_slope * (t_i - initial_last_point.ts) / MULTIPLIER;
-        let new_point = Point(bias=new_bias, slope=new_slope, ts=new_ts, blk=new_blk);
-        _point_history.write(new_epoch, new_point);
-        return _calculate_current_point(current_index + 1, new_t_i, new_point, initial_last_point, new_last_checkpoint, block_slope, new_epoch);
-    }
 }
 
 func _get_dslope_and_new_t_i{
@@ -1344,9 +1348,6 @@ func _supply_at{
     let unlock_time = q * WEEK;  // rounded down to weeks
     let t_i = q * WEEK;
     let (required_bias) = _search_time_bias(0, t_i, point, t);
-    tempvar syscall_ptr: felt* = syscall_ptr;
-    tempvar pedersen_ptr: HashBuiltin* = pedersen_ptr;
-    tempvar range_check_ptr = range_check_ptr;
     let is_required_bias_less_than_zero = is_le(required_bias, 0);
     if (is_required_bias_less_than_zero == 1) {
         return (bias=0);
@@ -1363,31 +1364,34 @@ func _search_time_bias{
     alloc_locals;
     if (current_index == 255) {
         return (bias=last_point.bias);
+    } else {
+        let (new_t_i, d_slope) = _calculate_search_time_bias_values(t_i, t);
+        let new_bias = last_point.bias - (last_point.slope * (new_t_i - last_point.ts));
+        if (new_t_i == t) {
+            return (bias=new_bias);
+        } else {
+            let new_slope = last_point.slope + d_slope;
+            let new_point = Point(bias=new_bias, slope=new_slope, ts=new_t_i, blk=last_point.blk);
+            return _search_time_bias(current_index + 1, new_t_i, new_point, t);
+        }
     }
+}
+
+func _calculate_search_time_bias_values{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }(t_i: felt, t: felt) -> (new_t_i: felt, d_slope: felt){
+    alloc_locals;
+
     let new_t_i = t_i + WEEK;
     let is_new_t_i_greater_than_t = is_le(t, new_t_i);
-    tempvar d_slope;
     if (is_new_t_i_greater_than_t == 1) {
-        new_t_i = t;
-        assert d_slope = 0;
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
+        return (new_t_i=t, d_slope=0);
     } else {
         let (required_slope) = _slope_changes.read(new_t_i);
-        assert d_slope = required_slope;
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
+        return (new_t_i=new_t_i, d_slope=required_slope);
     }
-    let new_bias = last_point.bias - (last_point.slope * (new_t_i - last_point.ts));
-    if (new_t_i == t) {
-        return (bias=new_bias);
-    }
-    let new_slope = last_point.slope + d_slope;
-    let new_point = Point(bias=new_bias, slope=new_slope, ts=new_t_i, blk=last_point.blk);
-
-    return _search_time_bias(current_index + 1, new_t_i, new_point, t);
 }
 
 

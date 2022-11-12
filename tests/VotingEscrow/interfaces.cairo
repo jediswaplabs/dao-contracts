@@ -133,4 +133,10 @@ namespace IVotingEscrow {
 
     func slope_changes(ts: felt) -> (change: felt){
     }
+
+    func totalSupply() -> (bias: felt){
+    }
+
+    func balanceOf(address: felt) -> (bias: felt){
+    }
 }
