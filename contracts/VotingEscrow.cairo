@@ -890,8 +890,7 @@ func _checkpoint{
     let (local point_to_write: Point) = _get_point_to_write_checkpoint(address, current_point, u_old, u_new);
 
     // Record the changed point into history
-    let (epoch: felt) = _epoch.read();
-    _point_history.write(epoch, point_to_write);
+    _point_history.write(required_epoch, point_to_write);
 
     if (address != 0) {
         // Schedule the slope changes (slope is going down)
