@@ -261,9 +261,8 @@ func test_voting_escrow{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     IVotingEscrow.withdraw(contract_address=voting_escrow);
     %{ stop_prank() %}
 
-    // TODO: Fix total supply
-    // let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
-    // assert total_supply = 0;
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    assert total_supply = 0;
     let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
     assert alice_balance = 0;
     let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
@@ -296,7 +295,7 @@ func test_voting_escrow{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     %{ stop_prank() %}
 
     let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
-    assert total_supply = expected_slope * (WEEK * 3 - H);
+    assert total_supply = expected_slope * (WEEK * 3 - 2 * H);
     let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
     assert alice_balance = expected_slope * (WEEK * 2 - H);
     let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);

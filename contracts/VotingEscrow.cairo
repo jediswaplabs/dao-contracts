@@ -948,7 +948,7 @@ func _get_u_point_checkpoint{
     // Calculate slopes and biases
     // Kept at zero when they have to
     let is_locked_end_greater_than_current_timestamp = is_le(current_timestamp, locked.end_ts);
-    let (is_locked_amount_greater_than_zero) =  uint256_lt(Uint256(0, 0), locked.amount);
+    let (is_locked_amount_greater_than_zero) = uint256_lt(Uint256(0, 0), locked.amount);
     if (is_locked_end_greater_than_current_timestamp * is_locked_amount_greater_than_zero == 1) {
         let (u_point_slope, _) =  unsigned_div_rem(locked.amount.low, MAXTIME);
         let time_difference = locked.end_ts - current_timestamp;
@@ -970,7 +970,7 @@ func _get_last_point_checkpoint{
     if (is_epoch_greater_than_zero == 1) {
         let (last_point_temp: Point) = _point_history.read(epoch);
 
-        return (last_point=Point(bias=last_point_temp.bias, slope=last_point_temp.slope, ts=current_timestamp, blk=current_block));
+        return (last_point=last_point_temp);
     } else {
         return (last_point=Point(bias=0, slope=0, ts=current_timestamp, blk=current_block));
     }
@@ -1102,7 +1102,6 @@ func _schedule_slope_changes_new_checkpoint{
         let is_new_locked_end_less_than_equal_to_old_locked_end = is_le(new_locked.end_ts, old_locked.end_ts);
         if (is_new_locked_end_less_than_equal_to_old_locked_end != 1) {
             // old slope disappeared at this point
-            // TODO: double check new_dslope is 0, so slope is negative?
             let slope_temp = new_dslope - u_new.slope;
             _slope_changes.write(new_locked.end_ts, slope_temp);
             return ();
