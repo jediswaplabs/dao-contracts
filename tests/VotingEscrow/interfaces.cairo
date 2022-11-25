@@ -139,4 +139,10 @@ namespace IVotingEscrow {
 
     func balanceOf(address: felt) -> (bias: felt){
     }
+
+    func balanceOfAt(address: felt, _block: felt) -> (bias: felt){
+    }
+
+    func totalSupplyAt(_block: felt) -> (bias: felt){
+    }
 }

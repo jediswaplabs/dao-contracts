@@ -123,6 +123,7 @@ func test_voting_escrow{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     %{ stop_roll() %}
     %{ stop_warp() %}
 
+    // FIRST ITERATION
     // Move to timing which is good for testing - beginning of a UTC week plus 1 hour
     %{ stop_warp = warp(53 * 86400 * 7 + 3600, target_contract_address=ids.voting_escrow) %}
     %{ stop_roll = roll(10, target_contract_address=ids.voting_escrow) %} // Update block to 10
@@ -301,6 +302,239 @@ func test_voting_escrow{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
     assert bob_balance = expected_slope * (WEEK - H);
 
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // SECOND ITERATION
+    // Beginning of week: weight 3
+    // End of week: weight 1
+
+    // Fast forward 1 day
+    %{ stop_warp = warp(55 * 86400 * 7 + 86400 + 3600, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(110, target_contract_address=ids.voting_escrow) %}
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
+    let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
+
+    assert total_supply = alice_balance + bob_balance;
+    assert alice_balance = expected_slope * (2 * WEEK - H - DAY);
+    assert bob_balance = expected_slope * (WEEK - H - DAY);
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // Fast forward 2 days
+    %{ stop_warp = warp(55 * 86400 * 7 + 86400 * 2 + 3600, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(120, target_contract_address=ids.voting_escrow) %}
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
+    let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
+
+    assert total_supply = alice_balance + bob_balance;
+    assert alice_balance = expected_slope * (2 * WEEK - H - DAY * 2);
+    assert bob_balance = expected_slope * (WEEK - H - DAY * 2);
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // Fast forward 3 days
+    %{ stop_warp = warp(55 * 86400 * 7 + 86400 * 3 + 3600, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(130, target_contract_address=ids.voting_escrow) %}
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
+    let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
+
+    assert total_supply = alice_balance + bob_balance;
+    assert alice_balance = expected_slope * (2 * WEEK - H - DAY * 3);
+    assert bob_balance = expected_slope * (WEEK - H - DAY * 3);
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // Fast forward 4 days
+    %{ stop_warp = warp(55 * 86400 * 7 + 86400 * 4 + 3600, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(140, target_contract_address=ids.voting_escrow) %}
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
+    let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
+
+    assert total_supply = alice_balance + bob_balance;
+    assert alice_balance = expected_slope * (2 * WEEK - H - DAY * 4);
+    assert bob_balance = expected_slope * (WEEK - H - DAY * 4);
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // Fast forward 5 days
+    %{ stop_warp = warp(55 * 86400 * 7 + 86400 * 5 + 3600, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(150, target_contract_address=ids.voting_escrow) %}
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
+    let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
+
+    assert total_supply = alice_balance + bob_balance;
+    assert alice_balance = expected_slope * (2 * WEEK - H - DAY * 5);
+    assert bob_balance = expected_slope * (WEEK - H - DAY * 5);
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // Fast forward 6 days
+    %{ stop_warp = warp(55 * 86400 * 7 + 86400 * 6 + 3600, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(160, target_contract_address=ids.voting_escrow) %}
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
+    let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
+
+    assert total_supply = alice_balance + bob_balance;
+    assert alice_balance = expected_slope * (2 * WEEK - H - DAY * 6);
+    assert bob_balance = expected_slope * (WEEK - H - DAY * 6);
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // Fast forward 7 days
+    %{ stop_warp = warp(56 * 86400 * 7 + 3600, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(170, target_contract_address=ids.voting_escrow) %}
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
+    let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
+
+    assert total_supply = alice_balance + bob_balance;
+    assert alice_balance = expected_slope * (2 * WEEK - H - DAY * 7);
+    assert bob_balance = 0;
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // Withdraw Bob locked tokens
+    %{ stop_warp = warp(56 * 86400 * 7 + 7200, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(180, target_contract_address=ids.voting_escrow) %}
+    %{ stop_prank = start_prank(ids.bob_address, target_contract_address=ids.voting_escrow) %}
+    IVotingEscrow.withdraw(contract_address=voting_escrow);
+    %{ stop_prank() %}
+    let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
+    assert total_supply = alice_balance;
+    assert bob_balance = 0;
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // Note: Alice balances, week 56
+    // Fast forward 8 day
+    %{ stop_warp = warp(56 * 86400 * 7 + 86400 + 3600, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(190, target_contract_address=ids.voting_escrow) %}
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
+    let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
+
+    assert total_supply = alice_balance;
+    assert alice_balance = expected_slope * (WEEK - H - DAY);
+    assert bob_balance = 0;
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // Fast forward 9 days
+    %{ stop_warp = warp(56 * 86400 * 7 + 86400 * 2 + 3600, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(200, target_contract_address=ids.voting_escrow) %}
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
+    let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
+
+    assert total_supply = alice_balance;
+    assert alice_balance = expected_slope * (WEEK - H - 2 * DAY);
+    assert bob_balance = 0;
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // Fast forward 10 days
+    %{ stop_warp = warp(56 * 86400 * 7 + 86400 * 3 + 3600, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(210, target_contract_address=ids.voting_escrow) %}
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
+    let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
+
+    assert total_supply = alice_balance;
+    assert alice_balance = expected_slope * (WEEK - H - 3 * DAY);
+    assert bob_balance = 0;
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // Fast forward 11 days
+    %{ stop_warp = warp(56 * 86400 * 7 + 86400 * 4 + 3600, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(220, target_contract_address=ids.voting_escrow) %}
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
+    let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
+
+    assert total_supply = alice_balance;
+    assert alice_balance = expected_slope * (WEEK - H - 4 * DAY);
+    assert bob_balance = 0;
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // Fast forward 12 days
+    %{ stop_warp = warp(56 * 86400 * 7 + 86400 * 5 + 3600, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(230, target_contract_address=ids.voting_escrow) %}
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
+    let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
+
+    assert total_supply = alice_balance;
+    assert alice_balance = expected_slope * (WEEK - H - 5 * DAY);
+    assert bob_balance = 0;
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // Fast forward 13 days
+    %{ stop_warp = warp(56 * 86400 * 7 + 86400 * 6 + 3600, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(240, target_contract_address=ids.voting_escrow) %}
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
+    let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
+
+    assert total_supply = alice_balance;
+    assert alice_balance = expected_slope * (WEEK - H - 6 * DAY);
+    assert bob_balance = 0;
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // Fast forward 14 days
+    %{ stop_warp = warp(57 * 86400 * 7 + 3600, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(250, target_contract_address=ids.voting_escrow) %}
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
+    let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
+
+    assert total_supply = alice_balance;
+    assert alice_balance = 0;
+    assert bob_balance = 0;
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // Withdraw Alice locked tokens
+    %{ stop_warp = warp(57 * 86400 * 7 + 7200, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(260, target_contract_address=ids.voting_escrow) %}
+    %{ stop_prank = start_prank(ids.alice_address, target_contract_address=ids.voting_escrow) %}
+    IVotingEscrow.withdraw(contract_address=voting_escrow);
+    %{ stop_prank() %}
+    %{ stop_prank = start_prank(ids.bob_address, target_contract_address=ids.voting_escrow) %}
+    IVotingEscrow.withdraw(contract_address=voting_escrow);
+    %{ stop_prank() %}
+    let (alice_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=alice_address);
+    let (total_supply) = IVotingEscrow.totalSupply(contract_address=voting_escrow);
+    let (bob_balance) = IVotingEscrow.balanceOf(contract_address=voting_escrow, address=bob_address);
+    assert total_supply = 0;
+    assert bob_balance = 0;
+    assert alice_balance = 0;
+    %{ stop_roll() %}
+    %{ stop_warp() %}
+
+    // TEST HISTORICAL BALANCE
+    %{ stop_warp = warp(58 * 86400 * 7, target_contract_address=ids.voting_escrow) %}
+    %{ stop_roll = roll(270, target_contract_address=ids.voting_escrow) %}
+    // Before deposit
+    let (alice_balance) = IVotingEscrow.balanceOfAt(contract_address=voting_escrow, address=alice_address, _block=1);
+    let (bob_balance) = IVotingEscrow.balanceOfAt(contract_address=voting_escrow, address=bob_address, _block=1);
+    let (total_supply) = IVotingEscrow.totalSupplyAt(contract_address=voting_escrow, _block=1);
+
+    assert alice_balance = 0;
+    assert bob_balance = 0;
+    assert total_supply = 0;
     %{ stop_roll() %}
     %{ stop_warp() %}
 
