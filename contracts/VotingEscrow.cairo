@@ -487,49 +487,14 @@ func balanceOfAt{
     let (epoch) = _find_block_epoch(_block, max_epoch);
 
     let (local point_0: Point) = _point_history.read(epoch);
-    tempvar d_block;
-    tempvar d_t;
-    
-    if (max_epoch == epoch) {
-        assert d_block = current_block - point_0.blk;
-        assert d_t = current_timestamp - point_0.ts;
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
-    } else {
-        let (point_1: Point) = _point_history.read(epoch + 1);
-        assert d_block = point_1.blk - point_0.blk;
-        assert d_t = point_1.ts - point_0.ts;
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
-    }
-
-    tempvar block_time;
-
-    if (d_block == 0) {
-        assert block_time = point_0.ts;
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
-    } else {
-        assert block_time = point_0.ts + (d_t * (_block - point_0.blk) / d_block);
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
-    }
+    let (d_block, d_t) = _get_d_block_and_d_t(current_block, _block, point_0);
+    let (block_time) = _get_block_time(d_t, d_block, _block, point_0);
 
     let required_bias = upoint.bias - (upoint.slope * (block_time - upoint.ts));
     let is_required_bias_less_than_zero = is_le(required_bias, 0);
     if (is_required_bias_less_than_zero == 1) {
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
         return (bias=0);
     } else {
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
         return (bias=required_bias);
     }
 }
@@ -569,39 +534,8 @@ func totalSupplyAt{
     let (epoch) = _epoch.read();
     let (target_epoch) = _find_block_epoch(_block, epoch);
     let (point: Point) = _point_history.read(target_epoch);
-    tempvar dt;
-    if (target_epoch == epoch) {
-        if (point.blk == current_block) {
-            assert dt = 0;
-            tempvar syscall_ptr = syscall_ptr;
-            tempvar pedersen_ptr = pedersen_ptr;
-            tempvar range_check_ptr = range_check_ptr;
-        } else {
-            assert dt = (_block - point.blk) * (current_timestamp - point.ts) / (current_block - point.blk);
-            tempvar syscall_ptr = syscall_ptr;
-            tempvar pedersen_ptr = pedersen_ptr;
-            tempvar range_check_ptr = range_check_ptr;
-        }
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
-    } else {
-        let (point_next: Point) = _point_history.read(target_epoch + 1);
-        if (point.blk == point_next.blk) {
-            assert dt = 0;
-            tempvar syscall_ptr = syscall_ptr;
-            tempvar pedersen_ptr = pedersen_ptr;
-            tempvar range_check_ptr = range_check_ptr;
-        } else {
-            assert dt = (_block - point.blk) * (point_next.ts - point.ts) / (point_next.blk - point.blk);
-            tempvar syscall_ptr = syscall_ptr;
-            tempvar pedersen_ptr = pedersen_ptr;
-            tempvar range_check_ptr = range_check_ptr;
-        }
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
-    }
+    
+    let (dt) = _get_dt_total_supply_at(target_epoch, epoch, current_block, _block, current_timestamp, point);
 
     return _supply_at(point, point.ts + dt);
 }
@@ -1134,15 +1068,13 @@ func _calculate_current_point{
 
         let new_last_checkpoint = new_t_i;
         let new_ts = new_t_i;
-        local new_blk;
         let new_epoch = epoch + 1;
         if (new_t_i == current_timestamp) {
             let (current_block) = get_block_number();
-            assert new_blk = current_block;
-            let new_point = Point(bias=new_bias, slope=new_slope, ts=new_ts, blk=new_blk);
+            let new_point = Point(bias=new_bias, slope=new_slope, ts=new_ts, blk=current_block);
             return (new_point=new_point, new_epoch=new_epoch);
         } else {
-            assert new_blk = initial_last_point.blk + block_slope * (t_i - initial_last_point.ts) / MULTIPLIER;
+            let (new_blk, _) = unsigned_div_rem(initial_last_point.blk + block_slope * (t_i - initial_last_point.ts), MULTIPLIER);
             let new_point = Point(bias=new_bias, slope=new_slope, ts=new_ts, blk=new_blk);
             _point_history.write(new_epoch, new_point);
             return _calculate_current_point(current_index + 1, new_t_i, new_point, initial_last_point, new_last_checkpoint, block_slope, new_epoch);
@@ -1284,52 +1216,38 @@ func _binary_search_block_epoch{
     alloc_locals;
     if (current_index == 255) {
         return (epoch=_min);
-    }
-    let is_min_greater_than_equal_to_max = is_le(_max, _min);
-    if (is_min_greater_than_equal_to_max == 1) {
-        return (epoch=_min);
-    }
-    let _mid = (_min + _max + 1) / 2;
-    let (point_history: Point) = _point_history.read(_mid);
-    let is_point_history_block_less_than_equal_to_block = is_le(point_history.blk, block);
-    tempvar new_min;
-    tempvar new_max;
-    if (is_point_history_block_less_than_equal_to_block == 1) {
-        assert new_min = _mid;
-        assert new_max = _max;
     } else {
-        assert new_min = _min;
-        assert new_max = _mid - 1;
+        let is_min_greater_than_equal_to_max = is_le(_max, _min);
+        if (is_min_greater_than_equal_to_max == 1) {
+            return (epoch=_min);
+        } else {    
+            let (mid, _) = unsigned_div_rem(_min + _max + 1, 2);
+            let (point_history: Point) = _point_history.read(mid);
+            let (new_min, new_max) = _get_new_min_and_max(_min, _max, block, point_history, mid);
+            return _binary_search_block_epoch(current_index + 1, new_min, new_max, block);
+        }
     }
-    return _binary_search_block_epoch(current_index + 1, new_min, new_max, block);
 }
 
 func _binary_search_user_point_block_epoch{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
-    }(current_index: felt, _min: felt, _max: felt, address:felt, block: felt) -> (epoch: felt){
+    }(current_index: felt, _min: felt, _max: felt, address: felt, block: felt) -> (epoch: felt){
     alloc_locals;
     if (current_index == 255) {
         return (epoch=_min);
-    }
-    let is_min_greater_than_equal_to_max = is_le(_max, _min);
-    if (is_min_greater_than_equal_to_max == 1) {
-        return (epoch=_min);
-    }
-    let _mid = (_min + _max + 1) / 2;
-    let (point_history: Point) = _user_point_history.read(address, _mid);
-    let is_point_history_block_less_than_equal_to_block = is_le(point_history.blk, block);
-    tempvar new_min;
-    tempvar new_max;
-    if (is_point_history_block_less_than_equal_to_block == 1) {
-        assert new_min = _mid;
-        assert new_max = _max;
     } else {
-        assert new_min = _min;
-        assert new_max = _mid - 1;
+        let is_min_greater_than_equal_to_max = is_le(_max, _min);
+        if (is_min_greater_than_equal_to_max == 1) {
+            return (epoch=_min);
+        } else {
+            let (mid, _) = unsigned_div_rem(_min + _max + 1, 2);
+            let (point_history: Point) = _user_point_history.read(address, mid);
+            let (new_min, new_max) = _get_new_min_and_max(_min, _max, block, point_history, mid);
+            return _binary_search_user_point_block_epoch(current_index + 1, new_min, new_max, address, block);
+        }
     }
-    return _binary_search_user_point_block_epoch(current_index + 1, new_min, new_max, address, block);
 }
 
 // @dev Calculate total voting power at some point in the past
@@ -1390,6 +1308,80 @@ func _calculate_search_time_bias_values{
         let (required_slope) = _slope_changes.read(new_t_i);
         return (new_t_i=new_t_i, d_slope=required_slope);
     }
+}
+
+func _get_d_block_and_d_t{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }(current_block: felt, _block: felt, point_0: Point) -> (d_block: felt, d_t: felt){
+    alloc_locals;
+
+    let (current_timestamp) = get_block_timestamp();
+    let (max_epoch) = _epoch.read();
+    let (epoch) = _find_block_epoch(_block, max_epoch);
+
+    if (max_epoch == epoch) {
+        return (d_block=current_block - point_0.blk, d_t=current_timestamp - point_0.ts);
+    } else {
+        let (point_1: Point) = _point_history.read(epoch + 1);
+        return (d_block=point_1.blk - point_0.blk, d_t=point_1.ts - point_0.ts);
+    }
+}
+
+func _get_block_time{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }(d_t: felt, d_block: felt, _block: felt, point_0: Point) -> (block_time: felt){
+    alloc_locals;
+
+    if (d_block == 0) {
+        return(block_time=point_0.ts);
+    } else {
+        let (time_difference, _) = unsigned_div_rem(d_t * (_block - point_0.blk), d_block);
+        return (block_time=point_0.ts + time_difference);
+    }
+}
+
+func _get_new_min_and_max{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }(_min: felt, _max: felt, block: felt, point_history: Point, mid: felt) -> (new_min: felt, new_max: felt){
+    alloc_locals;
+    let is_point_history_block_less_than_equal_to_block = is_le(point_history.blk, block);
+    if (is_point_history_block_less_than_equal_to_block == 1) {
+        return (new_min=mid, new_max=_max);
+    } else {
+        return (new_min=_min, new_max=mid - 1);
+    }
+}
+
+func _get_dt_total_supply_at{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }(target_epoch: felt, epoch: felt, current_block: felt, _block: felt, current_timestamp: felt, point: Point) -> (dt: felt){
+    alloc_locals;
+    
+    if (target_epoch == epoch) {
+        if (point.blk == current_block) {
+            return (dt=0);
+        } else {
+            let (dt, _) = unsigned_div_rem((_block - point.blk) * (current_timestamp - point.ts), (current_block - point.blk));
+            return (dt=dt);
+        }
+    } else {
+        let (point_next: Point) = _point_history.read(target_epoch + 1);
+        if (point.blk == point_next.blk) {
+            return (dt=0);
+        } else {
+            let (dt, _) = unsigned_div_rem((_block - point.blk) * (point_next.ts - point.ts), (point_next.blk - point.blk));
+            return(dt=dt);
+        }
+    }
+
 }
 
 
