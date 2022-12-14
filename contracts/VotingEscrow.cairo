@@ -487,7 +487,7 @@ func balanceOfAt{
     let (epoch) = _find_block_epoch(_block, max_epoch);
 
     let (local point_0: Point) = _point_history.read(epoch);
-    let (d_block, d_t) = _get_d_block_and_d_t(current_block, _block, point_0);
+    let (d_block, d_t) = _get_d_block_and_d_t(current_timestamp, max_epoch, epoch, current_block, _block, point_0);
     let (block_time) = _get_block_time(d_t, d_block, _block, point_0);
 
     let required_bias = upoint.bias - (upoint.slope * (block_time - upoint.ts));
@@ -916,13 +916,16 @@ func _get_block_slope_checkpoint{
         range_check_ptr
     }(last_point: Point, current_timestamp: felt, current_block: felt) -> (block_slope: felt) {
     alloc_locals;
-    let is_current_block_timestamp_greater_than_last_point_ts = is_le(last_point.ts, current_block);
+    let is_current_block_timestamp_greater_than_last_point_ts = is_le(last_point.ts, current_timestamp);
     if (is_current_block_timestamp_greater_than_last_point_ts == 1) {
-        let block_diff = current_block - last_point.blk;
-        let timestamp_diff = current_timestamp - last_point.ts;
-        let (diff_division, _) = signed_div_rem(block_diff, timestamp_diff, MULTIPLIER);
-
-        return (block_slope=MULTIPLIER * diff_division);
+        // Handle case when numerator is 0 and unsigned div rem does not work
+        let numerator = MULTIPLIER * (current_block - last_point.blk);
+        if (numerator == 0) {
+            return (block_slope=0); 
+        } else {
+            let (block_slope_temp, _) = unsigned_div_rem(numerator, current_timestamp - last_point.ts);
+            return (block_slope=block_slope_temp);
+        }
     } else {
         return (block_slope=0);
     }
@@ -1074,8 +1077,8 @@ func _calculate_current_point{
             let new_point = Point(bias=new_bias, slope=new_slope, ts=new_ts, blk=current_block);
             return (new_point=new_point, new_epoch=new_epoch);
         } else {
-            let (new_blk, _) = unsigned_div_rem(initial_last_point.blk + block_slope * (t_i - initial_last_point.ts), MULTIPLIER);
-            let new_point = Point(bias=new_bias, slope=new_slope, ts=new_ts, blk=new_blk);
+            let (new_blk, _) = unsigned_div_rem(block_slope * (new_t_i - initial_last_point.ts), MULTIPLIER);
+            let new_point = Point(bias=new_bias, slope=new_slope, ts=new_ts, blk=initial_last_point.blk + new_blk);
             _point_history.write(new_epoch, new_point);
             return _calculate_current_point(current_index + 1, new_t_i, new_point, initial_last_point, new_last_checkpoint, block_slope, new_epoch);
         }
@@ -1214,7 +1217,7 @@ func _binary_search_block_epoch{
         range_check_ptr
     }(current_index: felt, _min: felt, _max: felt, block: felt) -> (epoch: felt){
     alloc_locals;
-    if (current_index == 255) {
+    if (current_index == 128) {
         return (epoch=_min);
     } else {
         let is_min_greater_than_equal_to_max = is_le(_max, _min);
@@ -1314,12 +1317,8 @@ func _get_d_block_and_d_t{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
-    }(current_block: felt, _block: felt, point_0: Point) -> (d_block: felt, d_t: felt){
+    }(current_timestamp: felt, max_epoch: felt, epoch: felt, current_block: felt, _block: felt, point_0: Point) -> (d_block: felt, d_t: felt){
     alloc_locals;
-
-    let (current_timestamp) = get_block_timestamp();
-    let (max_epoch) = _epoch.read();
-    let (epoch) = _find_block_epoch(_block, max_epoch);
 
     if (max_epoch == epoch) {
         return (d_block=current_block - point_0.blk, d_t=current_timestamp - point_0.ts);
