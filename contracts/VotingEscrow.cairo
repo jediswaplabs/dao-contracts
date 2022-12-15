@@ -39,6 +39,34 @@ from starkware.cairo.common.uint256 import (
 // 0 +--------+------> time
 //       maxtime (4 years?)
 
+//
+// Events
+//
+
+@event
+func CommitOwnership(admin: felt) {
+}
+
+@event
+func ApplyOwnership(admin: felt) {
+}
+
+@event
+func Deposit(provider: felt, value: Uint256, locktime: felt, type: felt, ts: felt) {
+}
+
+@event
+func Withdraw(provider: felt, value: Uint256, ts: felt) {
+}
+
+@event
+func Supply(prevSupply: Uint256, supply: Uint256) {
+}
+
+//
+// Structs
+// 
+
 struct Point{
     bias: felt,
     slope: felt,
@@ -73,6 +101,10 @@ namespace ERC20{
     }
 }
 
+//
+// Constants
+// 
+
 const WEEK = 86400 * 7;
 const MAXTIME = 4 * 365 * 86400;
 const MULTIPLIER = 10 ** 18;
@@ -81,6 +113,10 @@ const DEPOSIT_FOR_TYPE = 0;
 const CREATE_LOCK_TYPE = 1;
 const INCREASE_LOCK_AMOUNT = 2;
 const INCREASE_UNLOCK_TIME = 3;
+
+//
+// Storage
+// 
 
 // @notice Base Token Address
 @storage_var
@@ -171,6 +207,10 @@ func _future_admin() -> (address: felt){
 func _reentrancy_locked() -> (res: felt){
 }
 
+//
+// Constructor
+// 
+
 // @notice Contract constructor
 // @dev get_caller_address() returns '0' in the constructor
 //      therefore, initial_admin parameter is included
@@ -206,6 +246,10 @@ func constructor{
     
     return ();
 }
+
+//
+// View
+// 
 
 // @notice Base Token Address
 // @return address
@@ -540,6 +584,9 @@ func totalSupplyAt{
     return _supply_at(point, point.ts + dt);
 }
 
+//
+// External
+// 
 
 // @notice Transfer ownership of VotingEscrow contract to `future_admin`
 // @dev Needs to be applied later, to finalize the change
@@ -553,6 +600,7 @@ func commit_transfer_ownership{
     _only_admin();
     assert_not_zero(future_admin);
     _future_admin.write(future_admin);
+    CommitOwnership.emit(admin=future_admin);
     return ();
 }
 
@@ -567,6 +615,7 @@ func apply_transfer_ownership{
     let (admin) = _future_admin.read();
     assert_not_zero(admin);
     _admin.write(admin);
+    ApplyOwnership.emit(admin=admin);
     return ();
 }
 
@@ -784,8 +833,15 @@ func withdraw{
     ERC20.transfer(contract_address=token, recipient=caller, amount=locked.amount);
 
     _unlock_reentrancy();
+
+    Withdraw.emit(provider=caller, value=locked.amount, ts=current_timestamp);
+    Supply.emit(prevSupply=supply_before, supply=new_supply);
     return ();
 }
+
+//
+// Internal
+// 
 
 // @dev Record global and per-user data to checkpoint
 // @param address User's wallet address. No user checkpoint if 0x0
@@ -854,6 +910,7 @@ func _checkpoint{
     return ();
 }
 
+// @dev Get current slope and biases in the checkpoint function. Separated `if` branches into internal function for readability
 func _get_slopes_and_biases_checkpoint{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -873,6 +930,7 @@ func _get_slopes_and_biases_checkpoint{
     }
 }
 
+// @dev Get user point in the checkpoint function. Separated `if` branches into internal function for readability
 func _get_u_point_checkpoint{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -893,6 +951,7 @@ func _get_u_point_checkpoint{
     }
 }
 
+// @dev Get last point in the checkpoint function. Separated `if` branches into internal function for readability
 func _get_last_point_checkpoint{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -910,6 +969,7 @@ func _get_last_point_checkpoint{
     }
 }
 
+// @dev Get block slope in the checkpoint function. Separated `if` branches into internal function for readability
 func _get_block_slope_checkpoint{
         syscall_ptr : felt*,
         pedersen_ptr : HashBuiltin*,
@@ -933,6 +993,7 @@ func _get_block_slope_checkpoint{
     // But that's ok b/c we know the block in such case
 }
 
+// @dev Get difference in slope in the checkpoint function. Separated `if` branches into internal function for readability
 func _get_dslope_checkpoint{
         syscall_ptr : felt*,
         pedersen_ptr : HashBuiltin*,
@@ -956,6 +1017,7 @@ func _get_dslope_checkpoint{
     }
 }
 
+// @dev Get new point to write into storage in the checkpoint function. Separated `if` branches into internal function for readability
 func _get_point_to_write_checkpoint{
         syscall_ptr : felt*,
         pedersen_ptr : HashBuiltin*,
@@ -1000,6 +1062,7 @@ func _get_point_to_write_checkpoint{
     }
 }
 
+// @dev Update storage with old slope changes. Separated `if` branches into internal function for readability
 func _schedule_slope_changes_old_checkpoint{
         syscall_ptr : felt*,
         pedersen_ptr : HashBuiltin*,
@@ -1027,6 +1090,7 @@ func _schedule_slope_changes_old_checkpoint{
     }
 }
 
+// @dev Update storage with new slope changes. Separated `if` branches into internal function for readability
 func _schedule_slope_changes_new_checkpoint{
         syscall_ptr : felt*,
         pedersen_ptr : HashBuiltin*,
@@ -1051,7 +1115,7 @@ func _schedule_slope_changes_new_checkpoint{
     }
 }
 
-// Go over weeks to fill history and calculate what the current point is
+// @dev Go over weeks to fill history and calculate what the current point is
 // Returns both last_point and epoch
 func _calculate_current_point{
         syscall_ptr : felt*, 
@@ -1086,6 +1150,7 @@ func _calculate_current_point{
     
 }
 
+// @dev Get change in slope and new time in the calculate current point function. Separated `if` branches into internal function for readability
 func _get_dslope_and_new_t_i{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -1103,6 +1168,7 @@ func _get_dslope_and_new_t_i{
     }
 }
 
+// @dev Get new bias in calculate current point function. Separated `if` branches into internal function for readability
 func _get_new_bias_current_point{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -1118,6 +1184,7 @@ func _get_new_bias_current_point{
     }
 }
 
+// @dev Get new slope in the calculate current point function. Separated `if` branches into internal function for readability
 func _get_new_slope_current_point{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -1164,9 +1231,14 @@ func _deposit_for{
     
     _transfer_amount_if_nonzero(value, address);
 
+    let (current_timestamp) = get_block_timestamp();
+    Deposit.emit(provider=address, value=value, locktime=locked_balance.end_ts, type=type, ts=current_timestamp);
+    Supply.emit(prevSupply=supply_before, supply=new_supply);
+
     return ();
 }
 
+// @dev Get new unlock time in the deposit for internal function. Separated `if` branches into internal function for readability
 func _get_new_unlock_time{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -1179,6 +1251,7 @@ func _get_new_unlock_time{
     }
 }
 
+// @dev Transfer tokens in the deposit for internal function. Separated `if` branches into internal function for readability
 func _transfer_amount_if_nonzero{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -1211,6 +1284,7 @@ func _find_block_epoch{
     return (epoch=epoch);
 }
 
+// @dev Binary search to estimate timestamp for block number
 func _binary_search_block_epoch{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -1232,6 +1306,7 @@ func _binary_search_block_epoch{
     }
 }
 
+// @dev Binary search to estimate timestamp for user point block number
 func _binary_search_user_point_block_epoch{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -1275,6 +1350,7 @@ func _supply_at{
     }
 }
 
+// @dev Search for required bias in history
 func _search_time_bias{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -1296,6 +1372,7 @@ func _search_time_bias{
     }
 }
 
+// @dev Calculate bias. Separated `if` branches into internal function for readability
 func _calculate_search_time_bias_values{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -1313,6 +1390,7 @@ func _calculate_search_time_bias_values{
     }
 }
 
+// @dev Get change in block and time in balanceOfAt function. Separated `if` branches into internal function for readability
 func _get_d_block_and_d_t{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -1328,6 +1406,7 @@ func _get_d_block_and_d_t{
     }
 }
 
+// @dev Get change in block and time in balanceOfAt function. Separated `if` branches into internal function for readability
 func _get_block_time{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -1343,6 +1422,7 @@ func _get_block_time{
     }
 }
 
+// @dev Get change in block and time in binary search function. Separated `if` branches into internal function for readability
 func _get_new_min_and_max{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -1357,6 +1437,7 @@ func _get_new_min_and_max{
     }
 }
 
+// @dev Get change in time in totalSupplyAt function. Separated `if` branches into internal function for readability
 func _get_dt_total_supply_at{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -1382,7 +1463,6 @@ func _get_dt_total_supply_at{
     }
 
 }
-
 
 // @dev Check if the call is from a whitelisted smart contract, revert if not
 // @param address Address to be checked
