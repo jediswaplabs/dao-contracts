@@ -56,7 +56,7 @@ func test_commit_transfer_ownership_not_admin{syscall_ptr: felt*, pedersen_ptr: 
 
     // Transfer ownership
     %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.vesting_escrow) %}
-    %{ expect_revert() %}
+    %{ expect_revert(error_message="Owner only") %}
     IVestingEscrow.commit_transfer_ownership(contract_address=vesting_escrow, future_owner=user_1_address);
     %{ stop_prank() %}
 
@@ -81,7 +81,7 @@ func test_apply_transfer_ownership_not_admin{syscall_ptr: felt*, pedersen_ptr: H
 
     // Transfer ownership
     %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.vesting_escrow) %}
-    %{ expect_revert() %}
+    %{ expect_revert(error_message="Owner only") %}
     IVestingEscrow.apply_transfer_ownership(contract_address=vesting_escrow);
     %{ stop_prank() %}
 
@@ -136,9 +136,6 @@ func test_apply_transfer_ownership{syscall_ptr: felt*, pedersen_ptr: HashBuiltin
     // Transfer ownership
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.vesting_escrow) %}
     IVestingEscrow.commit_transfer_ownership(contract_address=vesting_escrow, future_owner=user_1_address);
-    %{ stop_prank() %}
-
-    %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.vesting_escrow) %}
     IVestingEscrow.apply_transfer_ownership(contract_address=vesting_escrow);
     %{ stop_prank() %}
 

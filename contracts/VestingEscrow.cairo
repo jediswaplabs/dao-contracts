@@ -37,6 +37,35 @@ namespace IERC20{
 }
 
 //
+// Events
+//
+
+// An event emitted whenever commit_transfer_ownership() is called.
+@event
+func CommitOwnership(future_owner: felt){
+}
+
+// An event emitted whenever apply_transfer_ownership() is called.
+@event
+func ApplyOwnership(future_owner: felt){
+}
+
+// An event emitted whenever a recipient is funded
+@event
+func Fund(recipient: felt, amount: Uint256){
+}
+
+// An event emitted whenever a recipient claimed
+@event
+func Claim(recipient: felt, claimed: Uint256){
+}
+
+// An event emitted whenever admin toggle disable a recipient
+@event
+func Toggle_disable(recipient: felt, disabled: felt){
+}
+
+//
 // Storage Ownable
 //
 
@@ -49,17 +78,6 @@ func _owner() -> (address: felt){
 @storage_var
 func _future_owner() -> (address: felt){
 }
-
-// An event emitted whenever initiate_ownership_transfer() is called.
-@event
-func owner_change_initiated(current_owner: felt, future_owner: felt){
-}
-
-// An event emitted whenever accept_ownership() is called.
-@event
-func owner_change_completed(current_owner: felt, future_owner: felt){
-}
-
 
 //
 // Storage VestingEscrow
@@ -123,22 +141,6 @@ func _fund_admins_enabled() -> (res: felt){
 // @dev fund admins
 @storage_var
 func _fund_admins(user: felt) -> (res: felt){
-}
-
-
-// An event emitted whenever a recipient is funded
-@event
-func Fund(recipient: felt, amount: Uint256){
-}
-
-// An event emitted whenever a recipient claimed
-@event
-func Claim(recipient: felt, claimed: Uint256){
-}
-
-// An event emitted whenever admin toggle disable a recipient
-@event
-func Toggle_disable(recipient: felt, disabled: felt){
 }
 
 
@@ -356,7 +358,7 @@ func locked_of{
 //
 
 // @notice Change ownership to `future_owner`
-// @dev Only owner can change. Needs to be accepted by future_owner using accept_ownership
+// @dev Only owner can change. Needs to be accepted by future_owner using apply_transfer_ownership
 // @param future_owner Address of new owner
 @external
 func commit_transfer_ownership{
@@ -365,31 +367,24 @@ func commit_transfer_ownership{
         range_check_ptr
     }(future_owner: felt) -> (future_owner: felt){
     _only_owner();
-    let (current_owner) = _owner.read();
-    with_attr error_message("VestingEscrow::initiate_ownership_transfer::New owner can not be zero"){
-        assert_not_zero(future_owner);
-    }
     _future_owner.write(future_owner);
-    owner_change_initiated.emit(current_owner=current_owner, future_owner=future_owner);
+    CommitOwnership.emit(future_owner=future_owner);
     return (future_owner=future_owner);
 }
 
 // @notice Change ownership to future_owner
-// @dev Only future_owner can accept. Needs to be initiated via initiate_ownership_transfer
+// @dev Only owner can accept. Needs to be initiated via commit_transfer_ownership
 @external
 func apply_transfer_ownership{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
     }(){
-    let (current_owner) = _owner.read();
+    _only_owner();
     let (future_owner) = _future_owner.read();
-    let (caller) = get_caller_address();
-    with_attr error_message("VestingEscrow::accept_ownership::Only future owner can accept"){
-        assert future_owner = caller;
-    }
+    assert_not_zero(future_owner);
     _owner.write(future_owner);
-    owner_change_completed.emit(current_owner=current_owner, future_owner=future_owner);
+    ApplyOwnership.emit(future_owner=future_owner);
     return ();
 }
 
@@ -405,7 +400,7 @@ func _only_owner{
     }(){
     let (owner) = _owner.read();
     let (caller) = get_caller_address();
-    with_attr error_message("VestingEscrow::_only_owner::Caller must be owner"){
+    with_attr error_message("Owner only"){
         assert owner = caller;
     }
     return ();
