@@ -181,8 +181,6 @@ func _decimals() -> (res: felt){
 
 // @notice Checks for contracts
 // @dev Goal is to prevent tokenizing the escrow
-//      Not sure how to do this on StarkNet because of account abstraction
-//      TODO
 @storage_var
 func _smart_wallet_checker() -> (address: felt){
 }
@@ -1464,14 +1462,13 @@ func _get_dt_total_supply_at{
 
 }
 
-// @dev Check if the call is from a whitelisted smart contract, revert if not
+// @dev Check if the call is from a whitelisted smart contract, revert if not. Currently not possible due to accounts being contracts themselves.
 // @param address Address to be checked
 func _assert_not_contract{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
     }(address: felt){
-    // TODO
     return ();
 }
 
