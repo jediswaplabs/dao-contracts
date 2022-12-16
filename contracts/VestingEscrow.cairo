@@ -13,9 +13,6 @@ from starkware.cairo.common.uint256 import (Uint256, uint256_le, uint256_lt, uin
 from contracts.utils.math import uint256_checked_add, uint256_checked_sub_lt, uint256_checked_mul, uint256_felt_checked_mul,uint256_checked_sub_le
 from starkware.starknet.common.messages import send_message_to_l1
 
-
-const CURRENT_BLOCK_NUMBER = 995000;
-
 //
 // Interfaces
 //
@@ -529,14 +526,12 @@ func toggle_disable{
         assert can_disable = 1;
     }
 
-    // let (block_timestamp: felt) = get_block_timestamp();
-    local block_timestamp: felt ;
-    assert block_timestamp = CURRENT_BLOCK_NUMBER;
+    let (block_timestamp: felt) = get_block_timestamp();
 
     let (disabled_at) = _disabled_at.read(recipient);
 
     if (disabled_at == 0){
-        _disabled_at.write(recipient,block_timestamp);
+        _disabled_at.write(recipient, block_timestamp);
         Toggle_disable.emit(recipient,1);
 
     } else {
@@ -625,10 +620,7 @@ func _total_vested_of{
         range_check_ptr
     }(recipient: felt, time: felt) -> (amount: Uint256){
     alloc_locals;
-    // let (block_timestamp: felt) = get_block_timestamp();
-    local block_timestamp: felt ;
-    assert block_timestamp = CURRENT_BLOCK_NUMBER;
-
+    let (block_timestamp: felt) = get_block_timestamp();
 
     local _time: felt;
     if (time == 0){
@@ -689,9 +681,7 @@ func _total_vested{
         range_check_ptr
     }() -> (amount: Uint256){
     alloc_locals;
-    // let (block_timestamp: felt) = get_block_timestamp();
-    local block_timestamp: felt ;
-    assert block_timestamp = CURRENT_BLOCK_NUMBER;
+    let (block_timestamp: felt) = get_block_timestamp();
 
     let (start_time) = _start_time.read();
     let (end_time) = _end_time.read();
