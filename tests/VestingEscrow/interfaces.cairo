@@ -82,4 +82,30 @@ namespace IVestingEscrow {
 
     func future_owner() -> (address: felt) {
     }
+
+    func add_tokens(amount: Uint256){
+    }
+
+    func fund(recipients_len: felt, recipients: felt*, amounts_len: felt, amounts: Uint256*){
+    }
+    
+    func claim(){
+    }
+
+    func vested_supply() -> (vested_supply: Uint256){
+    }
+
+    func locked_supply() -> (locked_supply: Uint256){
+    }
+
+    func vested_of(recipient: felt) -> (vested: Uint256){
+    }
+
+    func balance_of(recipient: felt) -> (balance: Uint256){
+    }
+
+    func locked_of(recipient: felt) -> (locked: Uint256){
+    }
+
+
 }
