@@ -92,6 +92,18 @@ namespace IVestingEscrow {
     func claim(){
     }
 
+    func toggle_disable(recipient: felt){
+    }
+
+    func disable_can_disable(){
+    }
+
+    func can_disable() -> (res: felt){
+    }
+
+    func disabled_at(user: felt) -> (time: felt){
+    }
+
     func vested_supply() -> (vested_supply: Uint256){
     }
 

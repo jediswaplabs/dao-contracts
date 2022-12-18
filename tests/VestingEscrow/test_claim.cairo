@@ -205,3 +205,6 @@ func test_claim_partial{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
 
     return ();
 }
+
+
+// NOTE: Test claim multiple skipped.
