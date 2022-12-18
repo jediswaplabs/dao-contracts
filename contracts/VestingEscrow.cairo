@@ -349,6 +349,27 @@ func locked_of{
 }
 
 
+@view
+func can_disable{        
+    syscall_ptr : felt*, 
+    pedersen_ptr : HashBuiltin*,
+    range_check_ptr
+}() -> (res: felt){
+    let (res) = _can_disable.read();
+    return (res=res);
+}
+
+
+@view
+func disabled_at{        
+    syscall_ptr : felt*, 
+    pedersen_ptr : HashBuiltin*,
+    range_check_ptr
+}(user: felt) -> (time: felt){
+    let (time) = _disabled_at.read(user);
+    return (time=time);
+}
+
 
 //
 // Setters Ownable
