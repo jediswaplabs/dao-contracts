@@ -59,7 +59,7 @@ func Claim(recipient: felt, claimed: Uint256){
 
 // An event emitted whenever admin toggle disable a recipient
 @event
-func Toggle_disable(recipient: felt, disabled: felt){
+func ToggleDisable(recipient: felt, disabled: felt){
 }
 
 //
@@ -95,7 +95,6 @@ func _start_time() -> (res: felt){
 func _end_time() -> (res: felt){
 }
 
-
 // @dev locked balance of a user
 @storage_var
 func _initial_locked(user: felt) -> (amount: Uint256){
@@ -106,18 +105,15 @@ func _initial_locked(user: felt) -> (amount: Uint256){
 func _total_claimed(user: felt) -> (amount: Uint256){
 }
 
-
 // @dev initial locked supply in contract
 @storage_var
 func _initial_locked_supply() -> (res: Uint256){
 }
 
-
 // @dev unallocated supply of contract
 @storage_var
 func _unallocated_supply() -> (res: Uint256){
 }
-
 
 // @dev admin can disable user or not
 @storage_var
@@ -134,12 +130,10 @@ func _disabled_at(user: felt) -> (time: felt){
 func _fund_admins_enabled() -> (res: felt){
 }
 
-
 // @dev fund admins
 @storage_var
 func _fund_admins(user: felt) -> (res: felt){
 }
-
 
 //
 // Constructor
@@ -238,6 +232,66 @@ func vested_token{
     return (vested_token=vested_token);
 }
 
+// @notice Get start time of vesting
+// @return start_time
+@view
+func start_time{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }() -> (start_time: felt){
+    let (start_time) = _start_time.read();
+    return (start_time=start_time);
+}
+
+// @notice Get end time of vesting
+// @return end_time
+@view
+func end_time{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }() -> (end_time: felt){
+    let (end_time) = _end_time.read();
+    return (end_time=end_time);
+}
+
+// @notice Get initial locked token amount
+// @return initial_locked
+@view
+func initial_locked{
+    syscall_ptr : felt*, 
+    pedersen_ptr : HashBuiltin*,
+    range_check_ptr
+}(user: felt) -> (amount: Uint256){
+    let (amount) = _initial_locked.read(user);
+    return (amount=amount);
+}
+
+// @notice Get total claimed amount for an user
+// @return total_claimed
+@view
+func total_claimed{
+    syscall_ptr : felt*, 
+    pedersen_ptr : HashBuiltin*,
+    range_check_ptr
+}(user: felt) -> (amount: Uint256){
+    let (amount) = _total_claimed.read(user);
+    return (amount=amount);
+}
+
+// @notice Get initial locked supply amount
+// @return initial_locked_supply
+@view
+func initial_locked_supply{
+    syscall_ptr : felt*, 
+    pedersen_ptr : HashBuiltin*,
+    range_check_ptr
+}() -> (amount: Uint256){
+    let (amount) = _initial_locked_supply.read();
+    return (amount=amount);
+}
+
 // @notice Get the total number of tokens which are unallocated, that are held by this contract
 // @return unallocated_supply
 @view
@@ -248,6 +302,54 @@ func unallocated_supply{
     }() -> (unallocated_supply: Uint256){
     let (unallocated_supply: Uint256) = _unallocated_supply.read();
     return (unallocated_supply=unallocated_supply);
+}
+
+// @notice Get bool if vesting can be disabled
+// @return can_disable
+@view
+func can_disable{        
+    syscall_ptr : felt*, 
+    pedersen_ptr : HashBuiltin*,
+    range_check_ptr
+}() -> (res: felt){
+    let (res) = _can_disable.read();
+    return (res=res);
+}
+
+// @notice Get time of vesting disabled
+// @return disabled_at
+@view
+func disabled_at{        
+    syscall_ptr : felt*, 
+    pedersen_ptr : HashBuiltin*,
+    range_check_ptr
+}(user: felt) -> (time: felt){
+    let (time) = _disabled_at.read(user);
+    return (time=time);
+}
+
+// @notice Get bool if fund admins are enabled
+// @return fund_admins_enabled
+@view
+func fund_admins_enabled{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }() -> (fund_admins_enabled: felt){
+    let (fund_admins_enabled) = _fund_admins_enabled.read();
+    return (fund_admins_enabled=fund_admins_enabled);
+}
+
+// @notice Get bool if address is fund admin
+// @return res
+@view
+func fund_admins{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }(user: felt) -> (res: felt){
+    let (res) = _fund_admins.read(user);
+    return (res=res);
 }
 
 // @notice Get the total number of tokens which have vested, that are held by this contract
@@ -261,7 +363,6 @@ func vested_supply{
     let (vested_supply: Uint256) = _total_vested();
     return (vested_supply=vested_supply);
 }
-
 
 // @notice Get the total number of tokens which are still locked (have not yet vested)
 // @return locked_supply
@@ -284,7 +385,6 @@ func locked_supply{
     let (locked_supply: Uint256) = uint256_checked_sub_le(initial_locked_supply,vested_supply);
     return (locked_supply=locked_supply);
 }
-
 
 // @notice Get the number of tokens which have vested for a given address
 // @param recipient address to check
@@ -347,61 +447,6 @@ func locked_of{
     let (locked: Uint256) = uint256_checked_sub_le(vested,initial_locked);
     return (locked=locked);
 }
-
-
-@view
-func can_disable{        
-    syscall_ptr : felt*, 
-    pedersen_ptr : HashBuiltin*,
-    range_check_ptr
-}() -> (res: felt){
-    let (res) = _can_disable.read();
-    return (res=res);
-}
-
-
-@view
-func disabled_at{        
-    syscall_ptr : felt*, 
-    pedersen_ptr : HashBuiltin*,
-    range_check_ptr
-}(user: felt) -> (time: felt){
-    let (time) = _disabled_at.read(user);
-    return (time=time);
-}
-
-
-@view
-func total_claimed{
-    syscall_ptr : felt*, 
-    pedersen_ptr : HashBuiltin*,
-    range_check_ptr
-}(user: felt) -> (amount: Uint256){
-    let (amount) = _total_claimed.read(user);
-    return (amount=amount);
-}
-
-@view
-func initial_locked_supply{
-    syscall_ptr : felt*, 
-    pedersen_ptr : HashBuiltin*,
-    range_check_ptr
-}() -> (amount: Uint256){
-    let (amount) = _initial_locked_supply.read();
-    return (amount=amount);
-}
-
-
-@view
-func initial_locked{
-    syscall_ptr : felt*, 
-    pedersen_ptr : HashBuiltin*,
-    range_check_ptr
-}(user: felt) -> (amount: Uint256){
-    let (amount) = _initial_locked.read(user);
-    return (amount=amount);
-}
-
 
 //
 // Setters Ownable
@@ -585,11 +630,11 @@ func toggle_disable{
 
     if (disabled_at == 0){
         _disabled_at.write(recipient, block_timestamp);
-        Toggle_disable.emit(recipient,1);
+        ToggleDisable.emit(recipient, 1);
 
     } else {
-        _disabled_at.write(recipient,0);
-        Toggle_disable.emit(recipient,0);
+        _disabled_at.write(recipient, 0);
+        ToggleDisable.emit(recipient, 0);
 
     }
 
