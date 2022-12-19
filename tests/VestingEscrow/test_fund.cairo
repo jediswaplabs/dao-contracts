@@ -113,10 +113,10 @@ func test_initial_locked_supply{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
     let user_2_amount = Uint256(300 * 10 ** 18, 0);
     let user_3_amount = Uint256(200 * 10 ** 18, 0); // left 100 unallocated
     
-    let (receipients: felt*) = alloc();
-    assert receipients[0] = user_1_address;
-    assert receipients[1] = user_2_address;
-    assert receipients[2] = user_3_address;
+    let (recipients: felt*) = alloc();
+    assert recipients[0] = user_1_address;
+    assert recipients[1] = user_2_address;
+    assert recipients[2] = user_3_address;
 
     let (amounts: Uint256*) = alloc();
     assert amounts[0] = user_1_amount;
@@ -124,15 +124,12 @@ func test_initial_locked_supply{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
     assert amounts[2] = user_3_amount;
 
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.vesting_escrow_address) %}
-    IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=3, recipients=receipients, amounts_len=3, amounts=amounts);
+    IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=3, recipients=recipients, amounts_len=3, amounts=amounts);
     %{ stop_prank() %}
 
     let expected_initiali_locked_supply = Uint256(900 * 10 ** 18, 0);
 
     let (initial_locked_supply) = IVestingEscrow.initial_locked_supply(contract_address=vesting_escrow_address);
-    %{
-        print(ids.initial_locked_supply.low)
-    %}
     let (is_initial_locked_supply_equal_expected_amount) = uint256_eq(initial_locked_supply, expected_initiali_locked_supply);
     assert is_initial_locked_supply_equal_expected_amount = TRUE;
 
@@ -165,10 +162,10 @@ func test_unallocated_supply{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ran
     let user_2_amount = Uint256(300 * 10 ** 18, 0);
     let user_3_amount = Uint256(200 * 10 ** 18, 0); // left 100 unallocated
     
-    let (receipients: felt*) = alloc();
-    assert receipients[0] = user_1_address;
-    assert receipients[1] = user_2_address;
-    assert receipients[2] = user_3_address;
+    let (recipients: felt*) = alloc();
+    assert recipients[0] = user_1_address;
+    assert recipients[1] = user_2_address;
+    assert recipients[2] = user_3_address;
 
     let (amounts: Uint256*) = alloc();
     assert amounts[0] = user_1_amount;
@@ -177,15 +174,12 @@ func test_unallocated_supply{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ran
 
 
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.vesting_escrow_address) %}
-    IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=3, recipients=receipients, amounts_len=3, amounts=amounts);
+    IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=3, recipients=recipients, amounts_len=3, amounts=amounts);
     %{ stop_prank() %}
 
     let expected_unallocated_supply = Uint256(100 * 10 ** 18, 0);
 
     let (unallocated_supply) = IVestingEscrow.unallocated_supply(contract_address=vesting_escrow_address);
-    %{
-        print(ids.unallocated_supply.low)
-    %}
     let (is_unallocated_supply_equal_expected_amount) = uint256_eq(unallocated_supply, expected_unallocated_supply);
     assert is_unallocated_supply_equal_expected_amount = TRUE;
 
@@ -218,10 +212,10 @@ func test_initial_locked{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
     let user_2_amount = Uint256(300 * 10 ** 18, 0);
     let user_3_amount = Uint256(200 * 10 ** 18, 0); // left 100 unallocated
     
-    let (receipients: felt*) = alloc();
-    assert receipients[0] = user_1_address;
-    assert receipients[1] = user_2_address;
-    assert receipients[2] = user_3_address;
+    let (recipients: felt*) = alloc();
+    assert recipients[0] = user_1_address;
+    assert recipients[1] = user_2_address;
+    assert recipients[2] = user_3_address;
 
     let (amounts: Uint256*) = alloc();
     assert amounts[0] = user_1_amount;
@@ -230,7 +224,7 @@ func test_initial_locked{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
 
 
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.vesting_escrow_address) %}
-    IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=3, recipients=receipients, amounts_len=3, amounts=amounts);
+    IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=3, recipients=recipients, amounts_len=3, amounts=amounts);
     %{ stop_prank() %}
 
     let (initial_user_1_locked) = IVestingEscrow.initial_locked(contract_address=vesting_escrow_address, user=user_1_address);
@@ -267,10 +261,10 @@ func test_partial_recipients{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ran
     let user_2_amount = Uint256(300 * 10 ** 18, 0);
     let user_3_amount = Uint256(200 * 10 ** 18, 0); // left 100 unallocated
     
-    let (receipients: felt*) = alloc();
-    assert receipients[0] = user_1_address;
-    assert receipients[1] = user_2_address;
-    assert receipients[2] = 0;      // Set to 0 address
+    let (recipients: felt*) = alloc();
+    assert recipients[0] = user_1_address;
+    assert recipients[1] = user_2_address;
+    assert recipients[2] = 0;      // Set to 0 address
 
     let (amounts: Uint256*) = alloc();
     assert amounts[0] = user_1_amount;
@@ -278,15 +272,12 @@ func test_partial_recipients{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ran
     assert amounts[2] = user_3_amount;
 
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.vesting_escrow_address) %}
-    IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=3, recipients=receipients, amounts_len=3, amounts=amounts);
+    IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=3, recipients=recipients, amounts_len=3, amounts=amounts);
     %{ stop_prank() %}
 
     let expected_unallocated_supply = Uint256(300 * 10 ** 18, 0); // 200 of user 3 + 100 unallocated
 
     let (unallocated_supply) = IVestingEscrow.unallocated_supply(contract_address=vesting_escrow_address);
-    %{
-        print(ids.unallocated_supply.low)
-    %}
     let (is_unallocated_supply_equal_expected_amount) = uint256_eq(unallocated_supply, expected_unallocated_supply);
     assert is_unallocated_supply_equal_expected_amount = TRUE;
 
@@ -327,15 +318,15 @@ func test_admin_only{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     let total_amount = Uint256(1000 * 10 ** 18, 0);
     let user_1_amount = Uint256(100 * 10 ** 18, 0);
 
-    let (receipients: felt*) = alloc();
-    assert receipients[0] = user_1_address;
+    let (recipients: felt*) = alloc();
+    assert recipients[0] = user_1_address;
 
     let (amounts: Uint256*) = alloc();
     assert amounts[0] = user_1_amount;
 
     %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.vesting_escrow_address) %}
     %{ expect_revert(error_message="VestingEscrow::fund::caller not owner or fund admin") %}
-    IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=1, recipients=receipients, amounts_len=1, amounts=amounts);
+    IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=1, recipients=recipients, amounts_len=1, amounts=amounts);
     %{ stop_prank() %}
 
     return ();
@@ -361,15 +352,15 @@ func test_over_allocation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_
     let total_amount = Uint256(1000 * 10 ** 18, 0);
     let user_1_amount = Uint256(1000 * 10 ** 18 + 1, 0);
 
-    let (receipients: felt*) = alloc();
-    assert receipients[0] = user_1_address;
+    let (recipients: felt*) = alloc();
+    assert recipients[0] = user_1_address;
 
     let (amounts: Uint256*) = alloc();
     assert amounts[0] = user_1_amount;
 
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.vesting_escrow_address) %}
-    // %{ expect_revert(error_message="Owner only") %}  // TODO: REVERTS BUT WITHOUT A PROPER MESSAGE
-    IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=1, recipients=receipients, amounts_len=1, amounts=amounts);
+    %{ expect_revert() %} // Underflow error natively built into Starknet hints: assert_not_zero failed: 0 = 0
+    IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=1, recipients=recipients, amounts_len=1, amounts=amounts);
     %{ stop_prank() %}
 
     return ();
@@ -410,10 +401,10 @@ func test_disabled_fund_admin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ra
     // let user_2_amount = Uint256(300 * 10 ** 18, 0);
     // let user_3_amount = Uint256(200 * 10 ** 18, 0); // left 100 unallocated
     
-    // let (receipients: felt*) = alloc();
-    // assert receipients[0] = user_1_address;
-    // assert receipients[1] = user_2_address;
-    // assert receipients[2] = user_3_address; 
+    // let (recipients: felt*) = alloc();
+    // assert recipients[0] = user_1_address;
+    // assert recipients[1] = user_2_address;
+    // assert recipients[2] = user_3_address; 
 
     // let (amounts: Uint256*) = alloc();
     // assert amounts[0] = user_1_amount;
@@ -428,7 +419,7 @@ func test_disabled_fund_admin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ra
 
     // %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.vesting_escrow_address) %}
     // %{ expect_revert(error_message="VestingEscrow::fund::caller not owner or fund admin") %}
-    // IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=3, recipients=receipients, amounts_len=3, amounts=amounts);
+    // IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=3, recipients=recipients, amounts_len=3, amounts=amounts);
     // %{ stop_prank() %}
 
 

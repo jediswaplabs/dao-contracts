@@ -588,9 +588,7 @@ func fund{
         tempvar range_check_ptr = range_check_ptr;
     }
 
-
     let (total_amount: Uint256) = _fund(recipients_len, recipients, amounts_len, amounts, Uint256(0,0));
-
 
     let (old_initial_locked_supply: Uint256) = _initial_locked_supply.read();
     let (new_initial_locked_supply: Uint256) = uint256_checked_add(old_initial_locked_supply,total_amount);
@@ -598,7 +596,7 @@ func fund{
     _initial_locked_supply.write(new_initial_locked_supply);
 
     let (old_unallocated_supply) = _unallocated_supply.read();
-    let (new_unallocated_supply: Uint256) = uint256_checked_sub_le(old_unallocated_supply,total_amount);
+    let (new_unallocated_supply: Uint256) = uint256_checked_sub_le(old_unallocated_supply, total_amount);
 
     _unallocated_supply.write(new_unallocated_supply);
 
@@ -823,11 +821,6 @@ func _total_vested{
     // local pedersen_ptr: HashBuiltin* = pedersen_ptr;
 }
 
-
-
-
-
-
 func _fund{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -836,17 +829,19 @@ func _fund{
     
     if (recipients_len == 0){
         return (_total_amount=total_amount);
+    } else {
+        if (recipients[0] == 0) {
+            return (_total_amount=total_amount);
+        } else {
+            let (old_initial_locked: Uint256) = _initial_locked.read([recipients]);
+            let(new_initial_locked: Uint256) = uint256_checked_add(old_initial_locked, [amounts]);
+            _initial_locked.write([recipients], new_initial_locked);
+
+            let (_total_amount: Uint256) = uint256_checked_add(total_amount, [amounts]);
+
+            Fund.emit([recipients], [amounts]);
+
+            return _fund(recipients_len=recipients_len - 1, recipients=&recipients[1], amounts_len=amounts_len - 1, amounts=&amounts[1], total_amount=_total_amount);
+        }
     }
-    
-    // @Reviewer there is a zero address check in solidity contract which i am neglecting
-    let (old_initial_locked: Uint256) = _initial_locked.read([recipients]);
-    let(new_initial_locked: Uint256) = uint256_checked_add(old_initial_locked,[amounts]);
-    _initial_locked.write([recipients],new_initial_locked);
-
-    let (_total_amount: Uint256) = uint256_checked_add(total_amount,[amounts]);
-
-    Fund.emit([recipients],[amounts]);
-
-   return _fund(recipients_len = recipients_len - 1, recipients = &recipients[1], amounts_len = amounts_len - 1, amounts = &amounts[1], total_amount = _total_amount);
-   
 }
