@@ -381,6 +381,28 @@ func total_claimed{
     return (amount=amount);
 }
 
+@view
+func initial_locked_supply{
+    syscall_ptr : felt*, 
+    pedersen_ptr : HashBuiltin*,
+    range_check_ptr
+}() -> (amount: Uint256){
+    let (amount) = _initial_locked_supply.read();
+    return (amount=amount);
+}
+
+
+@view
+func initial_locked{
+    syscall_ptr : felt*, 
+    pedersen_ptr : HashBuiltin*,
+    range_check_ptr
+}(user: felt) -> (amount: Uint256){
+    let (amount) = _initial_locked.read(user);
+    return (amount=amount);
+}
+
+
 //
 // Setters Ownable
 //

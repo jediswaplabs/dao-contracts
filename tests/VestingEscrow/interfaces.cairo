@@ -107,6 +107,18 @@ namespace IVestingEscrow {
     func total_claimed(user: felt) -> (amount: Uint256){
     }
 
+    func initial_locked(user: felt) -> (amount: Uint256){
+    }
+
+    func initial_locked_supply() -> (amount: Uint256){
+    }
+
+    func unallocated_supply() -> (amount: Uint256){
+    }
+
+    func disable_fund_admins(){
+    }
+
     func vested_supply() -> (vested_supply: Uint256){
     }
 
