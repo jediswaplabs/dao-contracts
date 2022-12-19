@@ -116,6 +116,9 @@ namespace IVestingEscrow {
     func unallocated_supply() -> (amount: Uint256){
     }
 
+    func update_fund_admins(fund_admins_len: felt, fund_admins: felt*){
+    }
+
     func disable_fund_admins(){
     }
 

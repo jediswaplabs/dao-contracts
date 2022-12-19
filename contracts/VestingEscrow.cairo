@@ -163,19 +163,16 @@ func constructor{
     with_attr error_message("VestingEscrow::constructor::all arguments must be non zero"){
         assert_not_zero(token);
         assert_not_zero(owner);
-        
     }
 
     let is_start_time_greater_than_equal_block_timestamp = is_le(block_timestamp,start_time);
     with_attr error_message("VestingEscrow::constructor::start time less than block timestamp"){
         assert is_start_time_greater_than_equal_block_timestamp = 1;
-        
     }
 
     let is_end_time_greater_than_start_time = is_le(start_time,end_time);
     with_attr error_message("VestingEscrow::constructor::start time not less than end time"){
         assert is_end_time_greater_than_start_time = 1;
-        
     }
 
     local syscall_ptr: felt* = syscall_ptr;
@@ -536,7 +533,7 @@ func add_tokens{
 
 
 @external
-func add_fund_admins{
+func update_fund_admins{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
@@ -552,7 +549,7 @@ func add_fund_admins{
     
     _fund_admins.write([fund_admins],1);
 
-    return add_fund_admins(fund_admins_len = fund_admins_len - 1,  fund_admins = &fund_admins[1]);
+    return update_fund_admins(fund_admins_len = fund_admins_len - 1,  fund_admins = &fund_admins[1]);
 
 }
 
@@ -830,7 +827,7 @@ func _fund{
     if (recipients_len == 0){
         return (_total_amount=total_amount);
     } else {
-        if (recipients[0] == 0) {
+        if ([recipients] == 0) {
             return (_total_amount=total_amount);
         } else {
             let (old_initial_locked: Uint256) = _initial_locked.read([recipients]);
