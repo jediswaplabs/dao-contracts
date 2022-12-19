@@ -21,13 +21,19 @@ func __setup__{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     local deployer_address;
     local vesting_escrow_address;
 
+    let current_timestamp = 100000; // Choose arbitrary current block timestamp
+    let start_time = current_timestamp + 1000 + 86400 * 365;
+    let end_time = start_time + 100000000;
+
     %{
         context.deployer_signer = ids.deployer_signer
         context.user_1_signer = ids.user_1_signer
         context.user_1_address = deploy_contract("./contracts/test/Account.cairo", [context.user_1_signer]).contract_address
         context.deployer_address = deploy_contract("./contracts/test/Account.cairo", [context.deployer_signer]).contract_address
         context.erc20_mesh_address = deploy_contract("./contracts/ERC20MESH.cairo", [11, 1, context.deployer_address]).contract_address
-        context.vesting_escrow_address = deploy_contract("./contracts/VestingEscrow.cairo", [context.erc20_mesh_address, 365 * 86400 * 2, 365 * 86400 * 2 + 100000000, 1, context.deployer_address]).contract_address
+        context.vesting_escrow_address = deploy_contract("./contracts/VestingEscrow.cairo", [context.erc20_mesh_address, ids.start_time, ids.end_time, 1, context.deployer_address]).contract_address
+        context.start_time = ids.start_time
+        context.end_time = ids.end_time
         ids.user_1_address = context.user_1_address
         ids.deployer_address = context.deployer_address
         ids.erc20_mesh_address = context.erc20_mesh_address
@@ -36,32 +42,23 @@ func __setup__{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
 
 
     // Setup
-    let total_amount = Uint256(1000000000000000000000, 0);    
+    let total_amount = Uint256(1000 * 10 ** 18, 0);
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.erc20_mesh_address) %}
     IERC20MESH.approve(contract_address=erc20_mesh_address, spender=vesting_escrow_address, amount=total_amount);
     %{ stop_prank() %}
 
-    let user_1_amount = Uint256(100000000000000000000, 0);
+    let user_1_amount = Uint256(100 * 10 ** 18, 0);
 
-    let (recipieints: felt*) = alloc();
-    assert recipieints[0] = user_1_address;
+    let (recipients: felt*) = alloc();
+    assert recipients[0] = user_1_address;
 
     let (amounts: Uint256*) = alloc();
     assert amounts[0] = user_1_amount;
 
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.vesting_escrow_address) %}
     IVestingEscrow.add_tokens(contract_address=vesting_escrow_address, amount=total_amount);
-    IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=1, recipients=recipieints, amounts_len=1, amounts=amounts);
+    IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=1, recipients=recipients, amounts_len=1, amounts=amounts);
     %{ stop_prank() %}
-
-    let (block_timestamp) = get_block_timestamp();
-    let start_time = block_timestamp + 1000 + 86400 * 365;
-    let end_time = start_time + 100000000;
-
-    %{
-        context.start_time = ids.start_time
-        context.end_time = ids.end_time
-    %}
     
     return ();
 }
@@ -85,28 +82,23 @@ func test_claim_full{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
         ids.end_time = context.end_time
     %}
 
-    let user_1_amount = Uint256(100000000000000000000, 0);
+    let user_1_amount = Uint256(100 * 10 ** 18, 0);
 
     // pass time
-    %{ stop_warp = warp(ids.end_time) %}
+    %{ stop_warp = warp(ids.end_time, target_contract_address=ids.vesting_escrow_address) %}
 
-        // Assert warped time
-        let (block_timestamp) = get_block_timestamp();
-        assert block_timestamp = end_time;
+    %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.vesting_escrow_address) %}
+    IVestingEscrow.claim(contract_address=vesting_escrow_address);
+    %{ stop_prank() %}
 
-        %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.vesting_escrow_address) %}
-        IVestingEscrow.claim(contract_address=vesting_escrow_address);
-        %{ stop_prank() %}
-
-        let (user_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=user_1_address);
-        let (is_user_balance_equal_expected_value) = uint256_eq(user_balance, user_1_amount);
-        assert is_user_balance_equal_expected_value = TRUE;
+    let (user_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=user_1_address);
+    let (is_user_balance_equal_expected_value) = uint256_eq(user_balance, user_1_amount);
+    assert is_user_balance_equal_expected_value = TRUE;
 
     %{ stop_warp() %}
 
     return ();
 }
-
 
 @external
 func test_claim_before_start{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
@@ -129,26 +121,20 @@ func test_claim_before_start{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ran
     let before_start_time = start_time - 5;
 
     // pass time
-    %{ stop_warp = warp(ids.before_start_time) %}
+    %{ stop_warp = warp(ids.before_start_time, target_contract_address=ids.vesting_escrow_address) %}
 
-        // Assert warped time
-        let (block_timestamp) = get_block_timestamp();
-        assert block_timestamp = before_start_time;
+    %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.vesting_escrow_address) %}
+    IVestingEscrow.claim(contract_address=vesting_escrow_address);
+    %{ stop_prank() %}
 
-        %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.vesting_escrow_address) %}
-        IVestingEscrow.claim(contract_address=vesting_escrow_address);
-        %{ stop_prank() %}
-
-        let (user_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=user_1_address);
-        let (is_user_balance_equal_zero) = uint256_eq(user_balance, Uint256(0, 0));
-        assert is_user_balance_equal_zero = TRUE;
+    let (user_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=user_1_address);
+    let (is_user_balance_equal_zero) = uint256_eq(user_balance, Uint256(0, 0));
+    assert is_user_balance_equal_zero = TRUE;
 
     %{ stop_warp() %}
 
     return ();
 }
-
-
 
 @external
 func test_claim_partial{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
@@ -171,35 +157,25 @@ func test_claim_partial{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     %}
     
     let before_end_time = start_time + 31337;
-    let user_1_amount = Uint256(100000000000000000000, 0);
-
+    let user_1_amount = Uint256(100 * 10 ** 18, 0);
 
     // pass time
-    %{ stop_warp = warp(ids.before_end_time) %}
+    %{ stop_warp = warp(ids.before_end_time,  target_contract_address=ids.vesting_escrow_address) %}
 
-        // Assert warped time
-        let (block_timestamp) = get_block_timestamp();
-        assert block_timestamp = before_end_time;
+    %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.vesting_escrow_address) %}
+    IVestingEscrow.claim(contract_address=vesting_escrow_address);
+    %{ stop_prank() %}
 
-        %{ stop_prank = start_prank(ids.user_1_address, target_contract_address=ids.vesting_escrow_address) %}
-        IVestingEscrow.claim(contract_address=vesting_escrow_address);
-        %{ stop_prank() %}
+    let (user_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=user_1_address);
 
-        let (user_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=user_1_address);
-
-        // expected_amount = 10 ** 20 * (tx.timestamp - start_time) // (end_time - start_time)
-        // let time_diff: felt = end_time - start_time;
-        // let (d: Uint256) = Uint256(time_diff, 0);        // TODO: THROWS ERROR
-        // let (current_timestamp) = get_block_timestamp();
-        // let a = Uint256(current_timestamp - start_time, 0);
-        // let (n, _) = uint256_mul(a, user_1_amount);
-        // let (expected_amount, _) = uint256_unsigned_div_rem(n, d);
-        // %{
-        //     print(expected_amount)
-        // %}
-        
-        // let (is_user_balance_equal_expected_amount) = uint256_eq(user_balance, expected_amount);
-        // assert is_user_balance_equal_expected_amount = TRUE;
+    // expected_amount = 10 ** 20 * (tx.timestamp - start_time) // (end_time - start_time)
+    let time_diff: felt = end_time - start_time;
+    let a = Uint256(before_end_time - start_time, 0);
+    let (n, _) = uint256_mul(a, user_1_amount);
+    let (expected_amount, _) = uint256_unsigned_div_rem(n, Uint256(time_diff, 0));
+    
+    let (is_user_balance_equal_expected_amount) = uint256_eq(user_balance, expected_amount);
+    assert is_user_balance_equal_expected_amount = TRUE;
 
     %{ stop_warp() %}
 
