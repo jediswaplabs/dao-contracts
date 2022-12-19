@@ -128,12 +128,18 @@ func test_disable{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
         ids.user_1_address = context.user_1_address
     %}
 
-    %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.vesting_escrow_address) %}
+    %{ 
+        stop_warp = warp(1000, target_contract_address=ids.vesting_escrow_address)
+        stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.vesting_escrow_address) 
+    %}
     IVestingEscrow.toggle_disable(contract_address=vesting_escrow_address, recipient=user_1_address);
-    %{ stop_prank() %}
+    %{ 
+        stop_prank() 
+        stop_warp()
+    %}
 
     let (disabled_at) = IVestingEscrow.disabled_at(contract_address=vesting_escrow_address, user=user_1_address);
-    assert disabled_at = 0;
+    assert disabled_at = 1000;
 
     return ();
 }
@@ -154,6 +160,8 @@ func test_disable_reenable{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range
         ids.user_1_address = context.user_1_address
     %}
 
+    %{ stop_warp = warp(1000, target_contract_address=ids.vesting_escrow_address) %}
+
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.vesting_escrow_address) %}
     IVestingEscrow.toggle_disable(contract_address=vesting_escrow_address, recipient=user_1_address);
     %{ stop_prank() %}
@@ -165,6 +173,8 @@ func test_disable_reenable{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range
 
     let (disabled_at) = IVestingEscrow.disabled_at(contract_address=vesting_escrow_address, user=user_1_address);
     assert disabled_at = 0;
+
+    %{ stop_warp() %}
 
     return ();
 }
