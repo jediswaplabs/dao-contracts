@@ -5,9 +5,10 @@ from starkware.starknet.common.syscalls import get_caller_address, deploy, get_c
 from starkware.cairo.common.uint256 import Uint256, uint256_add, uint256_sub, uint256_mul, uint256_unsigned_div_rem, uint256_eq
 from starkware.cairo.common.pow import pow
 from starkware.cairo.common.alloc import alloc
-from tests.VestingEscrow.interfaces import IVestingEscrow, IERC20MESH
 from starkware.starknet.common.syscalls import get_block_timestamp
 from starkware.cairo.common.bool import TRUE, FALSE
+
+from tests.VestingEscrow.interfaces import IVestingEscrow, IERC20MESH
 
 
 @external

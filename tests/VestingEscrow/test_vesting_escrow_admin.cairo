@@ -5,8 +5,9 @@ from starkware.starknet.common.syscalls import get_caller_address, deploy, get_c
 from starkware.cairo.common.uint256 import Uint256, uint256_add, uint256_sub, uint256_unsigned_div_rem
 from starkware.cairo.common.pow import pow
 from starkware.cairo.common.alloc import alloc
-from tests.VestingEscrow.interfaces import IVestingEscrow, IERC20MESH
 from starkware.starknet.common.syscalls import get_block_timestamp
+
+from tests.VestingEscrow.interfaces import IVestingEscrow, IERC20MESH
 
 @external
 func __setup__{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){

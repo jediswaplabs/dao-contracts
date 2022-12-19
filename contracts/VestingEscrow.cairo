@@ -371,6 +371,16 @@ func disabled_at{
 }
 
 
+@view
+func total_claimed{
+    syscall_ptr : felt*, 
+    pedersen_ptr : HashBuiltin*,
+    range_check_ptr
+}(user: felt) -> (amount: Uint256){
+    let (amount) = _total_claimed.read(user);
+    return (amount=amount);
+}
+
 //
 // Setters Ownable
 //

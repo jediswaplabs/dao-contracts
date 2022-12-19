@@ -104,6 +104,9 @@ namespace IVestingEscrow {
     func disabled_at(user: felt) -> (time: felt){
     }
 
+    func total_claimed(user: felt) -> (amount: Uint256){
+    }
+
     func vested_supply() -> (vested_supply: Uint256){
     }
 
