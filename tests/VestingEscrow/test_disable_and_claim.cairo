@@ -305,7 +305,6 @@ func test_disable_multiple_partial{syscall_ptr: felt*, pedersen_ptr: HashBuiltin
         ids.end_time = context.end_time
     %}
 
-
     let user_1_amount = Uint256(100 * 10 ** 18, 0);
 
     local before_end_time = start_time + 31337;
@@ -323,6 +322,9 @@ func test_disable_multiple_partial{syscall_ptr: felt*, pedersen_ptr: HashBuiltin
     IVestingEscrow.claim(contract_address=vesting_escrow_address);
     %{ stop_prank() %}
 
+    %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.vesting_escrow_address) %}
+    IVestingEscrow.toggle_disable(contract_address=vesting_escrow_address, recipient=user_1_address);
+    %{ stop_prank() %}
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.vesting_escrow_address) %}
     IVestingEscrow.toggle_disable(contract_address=vesting_escrow_address, recipient=user_1_address);
     %{ stop_prank() %}
@@ -344,9 +346,6 @@ func test_disable_multiple_partial{syscall_ptr: felt*, pedersen_ptr: HashBuiltin
 
     // assert
     let (user_balance) = IERC20MESH.balanceOf(contract_address=erc20_mesh_address, account=user_1_address);
-    %{
-        print(ids.user_balance.low, ids.expected_amount.low)
-    %}
     let (is_user_balance_equal_expected_amount) = uint256_eq(user_balance, expected_amount);
     assert is_user_balance_equal_expected_amount = TRUE;
 

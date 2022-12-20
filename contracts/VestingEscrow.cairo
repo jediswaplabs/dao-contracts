@@ -480,26 +480,6 @@ func apply_transfer_ownership{
     return ();
 }
 
-
-//
-// Internals Ownable
-//
-
-func _only_owner{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(){
-    let (owner) = _owner.read();
-    let (caller) = get_caller_address();
-    with_attr error_message("Owner only"){
-        assert owner = caller;
-    }
-    return ();
-}
-
-
-
 //
 // Externals Vesting Escrow
 //
@@ -531,7 +511,10 @@ func add_tokens{
     return ();
 }
 
-
+// @notice Update addresses who can fund the vesting contracts
+// @dev Only owner can change
+// @param fund_admins_len Length of fund admins
+// @param fund_admins Array of fund admins
 @external
 func update_fund_admins{
         syscall_ptr : felt*, 
@@ -701,12 +684,26 @@ func claim{
 
 }
 
+//
+// Internals Ownable
+//
 
+func _only_owner{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }(){
+    let (owner) = _owner.read();
+    let (caller) = get_caller_address();
+    with_attr error_message("Owner only"){
+        assert owner = caller;
+    }
+    return ();
+}
 
 //
 // Internals VestingEscrow
 //
-@external
 func _total_vested_of{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
@@ -765,7 +762,6 @@ func _total_vested_of{
     // local syscall_ptr: felt* = syscall_ptr;
     // local pedersen_ptr: HashBuiltin* = pedersen_ptr;
 }
-
 
 
 func _total_vested{

@@ -17,7 +17,6 @@ func __setup__{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     // Figure out how to pass around Uint256 using context
     let total_amount = Uint256(1000000000000000000000, 0);
     let user_1_amount = Uint256(100000000000000000, 0);
-    let ZERO = Uint256(0, 0);
 
     local deployer_signer = 1;
     local user_1_signer = 2;
@@ -147,7 +146,7 @@ func test_locked_supply{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     assert block_timestamp = end_time;
 
     let (locked_supply) = IVestingEscrow.locked_supply(contract_address=vesting_escrow_address);
-    let (is_locked_supply_equal_to_zero) = uint256_eq(locked_supply, ZERO);
+    let (is_locked_supply_equal_to_zero) = uint256_eq(locked_supply, Uint256(0, 0));
     assert is_locked_supply_equal_to_zero = TRUE;
 
     %{ stop_warp() %}
@@ -177,7 +176,7 @@ func test_vested_of{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
     let user_1_amount = Uint256(100000000000000000, 0);
 
     let (vested_of) = IVestingEscrow.vested_of(contract_address=vesting_escrow_address, recipient=user_1_address);
-    let (is_vested_of_equal_to_zero) = uint256_eq(vested_of, ZERO);
+    let (is_vested_of_equal_to_zero) = uint256_eq(vested_of, Uint256(0, 0));
     assert is_vested_of_equal_to_zero = TRUE;
 
     // pass time
@@ -229,7 +228,7 @@ func test_locked_of{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
     assert block_timestamp = end_time;
 
     let (locked_of) = IVestingEscrow.locked_of(contract_address=vesting_escrow_address, recipient=user_1_address);
-    let (is_locked_of_equal_to_zero) = uint256_eq(locked_of, ZERO);
+    let (is_locked_of_equal_to_zero) = uint256_eq(locked_of, Uint256(0, 0));
     assert is_locked_of_equal_to_zero = TRUE;
 
     %{ stop_warp() %}
@@ -260,7 +259,7 @@ func test_balance_of{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     let user_1_amount = Uint256(100000000000000000, 0);
 
     let (balance_of) = IVestingEscrow.balance_of(contract_address=vesting_escrow_address, recipient=user_1_address);
-    let (is_balance_of_equal_to_zero) = uint256_eq(balance_of, ZERO);
+    let (is_balance_of_equal_to_zero) = uint256_eq(balance_of, Uint256(0, 0));
     assert is_balance_of_equal_to_zero = TRUE;
 
     // pass time
@@ -283,7 +282,7 @@ func test_balance_of{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
 
     // Balance reduces to zero after claim
     let (balance_of) = IVestingEscrow.balance_of(contract_address=vesting_escrow_address, recipient=user_1_address);
-    let (is_balance_of_equal_to_zero) = uint256_eq(balance_of, ZERO);
+    let (is_balance_of_equal_to_zero) = uint256_eq(balance_of, Uint256(0, 0));
     assert is_balance_of_equal_to_zero = TRUE;
 
     return ();
