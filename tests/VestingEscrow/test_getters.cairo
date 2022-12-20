@@ -14,58 +14,60 @@ from tests.VestingEscrow.interfaces import IVestingEscrow, IERC20MESH
 func __setup__{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){
     alloc_locals;
 
-    // Figure out how to pass around Uint256 using context
-    let total_amount = Uint256(1000000000000000000000, 0);
-    let user_1_amount = Uint256(100000000000000000, 0);
-
     local deployer_signer = 1;
     local user_1_signer = 2;
     local user_1_address;
+    local user_2_signer = 3;
+    local user_2_address;
+    local user_3_signer = 4;
+    local user_3_address;
     local erc20_mesh_address;
     local deployer_address;
     local vesting_escrow_address;
 
-    %{
+    let current_timestamp = 100000; // Choose arbitrary current block timestamp
+    let start_time = current_timestamp + 1000 + 86400 * 365;
+    let end_time = start_time + 100000000;
+
+%{
         context.deployer_signer = ids.deployer_signer
         context.user_1_signer = ids.user_1_signer
+        context.user_2_signer = ids.user_2_signer
+        context.user_3_signer = ids.user_3_signer
         context.user_1_address = deploy_contract("./contracts/test/Account.cairo", [context.user_1_signer]).contract_address
+        context.user_2_address = deploy_contract("./contracts/test/Account.cairo", [context.user_2_signer]).contract_address
+        context.user_3_address = deploy_contract("./contracts/test/Account.cairo", [context.user_3_signer]).contract_address
         context.deployer_address = deploy_contract("./contracts/test/Account.cairo", [context.deployer_signer]).contract_address
         context.erc20_mesh_address = deploy_contract("./contracts/ERC20MESH.cairo", [11, 1, context.deployer_address]).contract_address
-        context.vesting_escrow_address = deploy_contract("./contracts/VestingEscrow.cairo", [context.erc20_mesh_address, 365 * 86400 * 2, 365 * 86400 * 2 + 100000000, 1, context.deployer_address]).contract_address
+        context.vesting_escrow_address = deploy_contract("./contracts/VestingEscrow.cairo", [context.erc20_mesh_address, ids.start_time, ids.end_time, 1, context.deployer_address]).contract_address
+        context.start_time = ids.start_time
+        context.end_time = ids.end_time
         ids.user_1_address = context.user_1_address
+        ids.user_2_address = context.user_2_address
+        ids.user_3_address = context.user_3_address
         ids.deployer_address = context.deployer_address
         ids.erc20_mesh_address = context.erc20_mesh_address
         ids.vesting_escrow_address = context.vesting_escrow_address
     %}
 
-
     // Setup
-    let total_amount = Uint256(1000000000000000000000, 0);    
+    let total_amount = Uint256(1000 * 10 ** 18, 0);    
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.erc20_mesh_address) %}
     IERC20MESH.approve(contract_address=erc20_mesh_address, spender=vesting_escrow_address, amount=total_amount);
     %{ stop_prank() %}
 
-    let user_1_amount = Uint256(100000000000000000, 0);
+    let user_1_amount = Uint256(10 ** 18, 0);
 
-    let (recipieints: felt*) = alloc();
-    assert recipieints[0] = user_1_address;
+    let (recipients: felt*) = alloc();
+    assert recipients[0] = user_1_address;
 
     let (amounts: Uint256*) = alloc();
     assert amounts[0] = user_1_amount;
 
     %{ stop_prank = start_prank(ids.deployer_address, target_contract_address=ids.vesting_escrow_address) %}
     IVestingEscrow.add_tokens(contract_address=vesting_escrow_address, amount=total_amount);
-    IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=1, recipients=recipieints, amounts_len=1, amounts=amounts);
+    IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=1, recipients=recipients, amounts_len=1, amounts=amounts);
     %{ stop_prank() %}
-
-    let (block_timestamp) = get_block_timestamp();
-    let start_time = block_timestamp + 1000 + 86400 * 365;
-    let end_time = start_time + 100000000;
-
-    %{
-        context.start_time = ids.start_time
-        context.end_time = ids.end_time
-    %}
     
     return ();
 }
@@ -78,6 +80,7 @@ func test_vested_supply{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     local vesting_escrow_address;
     local deployer_address;
     local user_1_address;
+    local start_time;
     local end_time;
 
     %{
@@ -85,26 +88,22 @@ func test_vested_supply{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
         ids.vesting_escrow_address = context.vesting_escrow_address
         ids.deployer_address = context.deployer_address
         ids.user_1_address = context.user_1_address
+        ids.start_time = context.start_time
         ids.end_time = context.end_time
     %}
 
-    // Figure out how to pass around Uint256 using context
-    let total_amount = Uint256(1000000000000000000000, 0);
-
-
+    %{ stop_warp = warp(ids.start_time, target_contract_address=ids.vesting_escrow_address) %}
+    let user_amount = Uint256(10 ** 18, 0);
     let (vested_supply) = IVestingEscrow.vested_supply(contract_address=vesting_escrow_address);
     let (is_vested_supply_equal_to_zero) = uint256_eq(vested_supply, Uint256(0, 0));
     assert is_vested_supply_equal_to_zero = TRUE;
+    %{ stop_warp() %}
 
     // pass time
-    %{ stop_warp = warp(ids.end_time) %}
-
-    // Assert warped time
-    let (block_timestamp) = get_block_timestamp();
-    assert block_timestamp = end_time;
+    %{ stop_warp = warp(ids.end_time, target_contract_address=ids.vesting_escrow_address) %}
 
     let (vested_supply) = IVestingEscrow.vested_supply(contract_address=vesting_escrow_address);
-    let (is_vested_supply_equal_to_amounts) = uint256_eq(vested_supply, total_amount);
+    let (is_vested_supply_equal_to_amounts) = uint256_eq(vested_supply, user_amount);
     assert is_vested_supply_equal_to_amounts = TRUE;
 
     %{ stop_warp() %}
@@ -121,6 +120,7 @@ func test_locked_supply{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     local vesting_escrow_address;
     local deployer_address;
     local user_1_address;
+    local start_time;
     local end_time;
 
     %{
@@ -128,22 +128,20 @@ func test_locked_supply{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
         ids.vesting_escrow_address = context.vesting_escrow_address
         ids.deployer_address = context.deployer_address
         ids.user_1_address = context.user_1_address
+        ids.start_time = context.start_time
         ids.end_time = context.end_time
     %}
 
-    // Figure out how to pass around Uint256 using context
-    let total_amount = Uint256(1000000000000000000000, 0);
+    %{ stop_warp = warp(ids.start_time, target_contract_address=ids.vesting_escrow_address) %}
+    let user_amount = Uint256(10 ** 18, 0);
 
     let (locked_supply) = IVestingEscrow.locked_supply(contract_address=vesting_escrow_address);
-    let (is_locked_supply_equal_to_amounts) = uint256_eq(locked_supply, total_amount);
+    let (is_locked_supply_equal_to_amounts) = uint256_eq(locked_supply, user_amount);
     assert is_locked_supply_equal_to_amounts = TRUE;
+    %{ stop_warp() %}
 
     // pass time
-    %{ stop_warp = warp(ids.end_time) %}
-
-    // Assert warped time
-    let (block_timestamp) = get_block_timestamp();
-    assert block_timestamp = end_time;
+    %{ stop_warp = warp(ids.end_time, target_contract_address=ids.vesting_escrow_address) %}
 
     let (locked_supply) = IVestingEscrow.locked_supply(contract_address=vesting_escrow_address);
     let (is_locked_supply_equal_to_zero) = uint256_eq(locked_supply, Uint256(0, 0));
@@ -172,19 +170,14 @@ func test_vested_of{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
         ids.end_time = context.end_time
     %}
 
-    // Figure out how to pass around Uint256 using context
-    let user_1_amount = Uint256(100000000000000000, 0);
+    let user_1_amount = Uint256(10 ** 18, 0);
 
     let (vested_of) = IVestingEscrow.vested_of(contract_address=vesting_escrow_address, recipient=user_1_address);
     let (is_vested_of_equal_to_zero) = uint256_eq(vested_of, Uint256(0, 0));
     assert is_vested_of_equal_to_zero = TRUE;
 
     // pass time
-    %{ stop_warp = warp(ids.end_time) %}
-
-    // Assert warped time
-    let (block_timestamp) = get_block_timestamp();
-    assert block_timestamp = end_time;
+    %{ stop_warp = warp(ids.end_time, target_contract_address=ids.vesting_escrow_address) %}
 
     let (vested_of) = IVestingEscrow.vested_of(contract_address=vesting_escrow_address, recipient=user_1_address);
     let (is_vested_of_equal_to_user_amount) = uint256_eq(vested_of, user_1_amount);
@@ -203,6 +196,7 @@ func test_locked_of{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
     local vesting_escrow_address;
     local deployer_address;
     local user_1_address;
+    local start_time;
     local end_time;
 
     %{
@@ -210,22 +204,21 @@ func test_locked_of{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
         ids.vesting_escrow_address = context.vesting_escrow_address
         ids.deployer_address = context.deployer_address
         ids.user_1_address = context.user_1_address
+        ids.start_time = context.start_time
         ids.end_time = context.end_time
     %}
 
-    // Figure out how to pass around Uint256 using context
-    let user_1_amount = Uint256(100000000000000000, 0);
+    %{ stop_warp = warp(ids.start_time, target_contract_address=ids.vesting_escrow_address) %}
+    let user_1_amount = Uint256(10 ** 18, 0);
 
     let (locked_of) = IVestingEscrow.locked_of(contract_address=vesting_escrow_address, recipient=user_1_address);
     let (is_locked_of_equal_to_user_amount) = uint256_eq(locked_of, user_1_amount);
     assert is_locked_of_equal_to_user_amount = TRUE;
 
-    // pass time
-    %{ stop_warp = warp(ids.end_time) %}
+    %{ stop_warp() %}
 
-    // Assert warped time
-    let (block_timestamp) = get_block_timestamp();
-    assert block_timestamp = end_time;
+    // pass time
+    %{ stop_warp = warp(ids.end_time, target_contract_address=ids.vesting_escrow_address) %}
 
     let (locked_of) = IVestingEscrow.locked_of(contract_address=vesting_escrow_address, recipient=user_1_address);
     let (is_locked_of_equal_to_zero) = uint256_eq(locked_of, Uint256(0, 0));
@@ -255,23 +248,18 @@ func test_balance_of{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
         ids.end_time = context.end_time
     %}
 
-    // Figure out how to pass around Uint256 using context
-    let user_1_amount = Uint256(100000000000000000, 0);
+    let user_1_amount = Uint256(10 ** 18, 0);
 
     let (balance_of) = IVestingEscrow.balance_of(contract_address=vesting_escrow_address, recipient=user_1_address);
     let (is_balance_of_equal_to_zero) = uint256_eq(balance_of, Uint256(0, 0));
     assert is_balance_of_equal_to_zero = TRUE;
 
     // pass time
-    %{ stop_warp = warp(ids.end_time) %}
+    %{ stop_warp = warp(ids.end_time, target_contract_address=ids.vesting_escrow_address) %}
 
-        // Assert warped time
-        let (block_timestamp) = get_block_timestamp();
-        assert block_timestamp = end_time;
-
-        let (balance_of) = IVestingEscrow.balance_of(contract_address=vesting_escrow_address, recipient=user_1_address);
-        let (is_balance_of_equal_to_user_amount) = uint256_eq(balance_of, user_1_amount);
-        assert is_balance_of_equal_to_user_amount = TRUE;
+    let (balance_of) = IVestingEscrow.balance_of(contract_address=vesting_escrow_address, recipient=user_1_address);
+    let (is_balance_of_equal_to_user_amount) = uint256_eq(balance_of, user_1_amount);
+    assert is_balance_of_equal_to_user_amount = TRUE;
 
     %{ stop_warp() %}
 

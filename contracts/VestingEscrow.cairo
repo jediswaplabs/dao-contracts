@@ -441,7 +441,7 @@ func locked_of{
 
     local syscall_ptr: felt* = syscall_ptr;
     local pedersen_ptr: HashBuiltin* = pedersen_ptr;
-    let (locked: Uint256) = uint256_checked_sub_le(vested,initial_locked);
+    let (locked: Uint256) = uint256_checked_sub_le(initial_locked, vested);
     return (locked=locked);
 }
 
