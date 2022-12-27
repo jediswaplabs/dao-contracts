@@ -230,6 +230,13 @@ func test_initial_locked{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
     let (initial_user_1_locked) = IVestingEscrow.initial_locked(contract_address=vesting_escrow_address, user=user_1_address);
     let (is_initial_user_1_locked_equals_user_amount) = uint256_eq(initial_user_1_locked, user_1_amount);
     assert is_initial_user_1_locked_equals_user_amount = TRUE;
+    let (initial_user_2_locked) = IVestingEscrow.initial_locked(contract_address=vesting_escrow_address, user=user_2_address);
+    let (is_initial_user_2_locked_equals_user_amount) = uint256_eq(initial_user_2_locked, user_2_amount);
+    assert is_initial_user_2_locked_equals_user_amount = TRUE;
+    let (initial_user_3_locked) = IVestingEscrow.initial_locked(contract_address=vesting_escrow_address, user=user_3_address);
+    let (is_initial_user_3_locked_equals_user_amount) = uint256_eq(initial_user_3_locked, user_3_amount);
+    assert is_initial_user_3_locked_equals_user_amount = TRUE;
+
 
     return ();
 }
@@ -308,7 +315,6 @@ func test_event{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
     %}
     IVestingEscrow.fund(contract_address=vesting_escrow_address, recipients_len=3, recipients=recipients, amounts_len=3, amounts=amounts);
     %{ stop_prank() %}
-
 
     return ();
 }
