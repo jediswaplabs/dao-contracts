@@ -19,18 +19,14 @@ from starkware.starknet.common.syscalls import (
     get_block_number,
     get_block_timestamp
 )
-from starkware.cairo.common.math import assert_not_zero, assert_le, assert_lt, unsigned_div_rem, signed_div_rem
+from starkware.cairo.common.math import assert_not_zero, assert_le, assert_lt, unsigned_div_rem
 from starkware.cairo.common.math_cmp import is_le, is_not_zero
 from starkware.cairo.common.uint256 import (
-    Uint256, 
-    uint256_add, 
-    uint256_sub, 
-    uint256_mul, 
-    uint256_unsigned_div_rem, 
-    uint256_eq, 
-    uint256_le, 
-    uint256_lt, 
-    uint256_check
+    Uint256,
+    uint256_add,
+    uint256_sub,
+    uint256_eq,
+    uint256_lt
 )
 
 
@@ -47,29 +43,10 @@ from starkware.cairo.common.uint256 import (
 // 0 +--------+------> time
 //       maxtime (4 years?)
 
-//
-// Events
-//
-
-@event
-func CommitOwnership(admin: felt) {
-}
-
-@event
-func ApplyOwnership(admin: felt) {
-}
-
-@event
-func Deposit(provider: felt, value: Uint256, locktime: felt, type: felt, ts: felt) {
-}
-
-@event
-func Withdraw(provider: felt, value: Uint256, ts: felt) {
-}
-
-@event
-func Supply(prevSupply: Uint256, supply: Uint256) {
-}
+// Note: compared to Curve's canonical VotingEscrow, we made the following updates:
+// 1. Remove Aragon compatibility (controller, transfersEnabled, version)
+// 2. Remove smart wallet whitelisting. This is due to all accounts on Starknet being smart contracts themselves and maintaining a blocklist is extra overhead
+// 3. Refactor nested ifs in _checkpoint into separate internal functions to improve readability in Cairo
 
 //
 // Structs
@@ -81,6 +58,9 @@ struct Point{
     ts: felt,
     blk: felt,
 }
+// We cannot really do block numbers per se b/c slope is per time, not per block
+// and per block could be fairly bad.
+// What we can do is to extrapolate ***At functions
 
 struct LockedBalance{
     amount : Uint256,
@@ -121,6 +101,30 @@ const DEPOSIT_FOR_TYPE = 0;
 const CREATE_LOCK_TYPE = 1;
 const INCREASE_LOCK_AMOUNT = 2;
 const INCREASE_UNLOCK_TIME = 3;
+
+//
+// Events
+//
+
+@event
+func CommitOwnership(admin: felt) {
+}
+
+@event
+func ApplyOwnership(admin: felt) {
+}
+
+@event
+func Deposit(provider: felt, value: Uint256, locktime: felt, type: felt, ts: felt) {
+}
+
+@event
+func Withdraw(provider: felt, value: Uint256, ts: felt) {
+}
+
+@event
+func Supply(prevSupply: Uint256, supply: Uint256) {
+}
 
 //
 // Storage
@@ -185,17 +189,6 @@ func _symbol() -> (res: felt){
 // @notice Token Decimals
 @storage_var
 func _decimals() -> (res: felt){
-}
-
-// @notice Checks for contracts
-// @dev Goal is to prevent tokenizing the escrow
-@storage_var
-func _smart_wallet_checker() -> (address: felt){
-}
-
-// @notice Updated smart wallet checker
-@storage_var
-func _future_smart_wallet_checker() -> (address: felt){
 }
 
 // @notice Admin of the contract
@@ -389,30 +382,6 @@ func decimals{
     return (decimals=decimals);
 }
 
-// @notice Contract that checks for whitelisted contracts
-// @return address
-@view
-func smart_wallet_checker{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }() -> (address: felt){
-    let (address) = _smart_wallet_checker.read();
-    return (address=address);
-}
-
-// @notice Updated Contract that checks for whitelisted contracts
-// @return address
-@view
-func future_smart_wallet_checker{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }() -> (address: felt){
-    let (address) = _future_smart_wallet_checker.read();
-    return (address=address);
-}
-
 // @notice Token Admin
 // @return address of the admin
 @view
@@ -467,9 +436,9 @@ func user_point_history_ts{
 
 // @notice Get timestamp when `address`'s lock finishes
 // @param address Address of the user wallet
-// @return end_ts Epoch time of the lock }
+// @return end_ts Epoch time of the lock
 @view
-func locked__end{
+func locked_end{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
@@ -502,7 +471,6 @@ func balanceOf{
         let (last_point: Point) = _user_point_history.read(address, epoch);
         let (_t) = get_block_timestamp();
         let required_bias = last_point.bias - (last_point.slope * (_t - last_point.ts));
-        // TODO: Doubt, isn't it incorrect as this is less than equal to rather than less than
         let is_required_bias_less_than_zero = is_le(required_bias, 0);
         if (is_required_bias_less_than_zero == 1) {
             return (bias=0);
@@ -537,8 +505,8 @@ func balanceOfAt{
     let (epoch) = _find_block_epoch(_block, max_epoch);
 
     let (local point_0: Point) = _point_history.read(epoch);
-    let (d_block, d_t) = _get_d_block_and_d_t(current_timestamp, max_epoch, epoch, current_block, _block, point_0);
-    let (block_time) = _get_block_time(d_t, d_block, _block, point_0);
+    let (d_block, d_t) = _get_d_block_and_d_t_balance_of_at(current_timestamp, max_epoch, epoch, current_block, _block, point_0);
+    let (block_time) = _get_block_time_balance_of_at(d_t, d_block, _block, point_0);
 
     let required_bias = upoint.bias - (upoint.slope * (block_time - upoint.ts));
     let is_required_bias_less_than_zero = is_le(required_bias, 0);
@@ -591,7 +559,7 @@ func totalSupplyAt{
 }
 
 //
-// External
+// External Admin
 // 
 
 // @notice Transfer ownership of VotingEscrow contract to `future_admin`
@@ -625,32 +593,9 @@ func apply_transfer_ownership{
     return ();
 }
 
-// @notice Set an external contract to check for approved smart contract wallets
-// @dev Needs to be applied later, to finalize the change
-// @param future_admin Address of Smart contract checker
-@external
-func commit_smart_wallet_checker{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(future_smart_wallet_checker: felt){
-    _only_admin();
-    _future_smart_wallet_checker.write(future_smart_wallet_checker);
-    return ();
-}
-
-// @notice Apply setting external contract to check approved smart contract wallets
-@external
-func apply_smart_wallet_checker{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(){
-    _only_admin();
-    let (future_smart_wallet_checker) = _future_smart_wallet_checker.read();
-    _smart_wallet_checker.write(future_smart_wallet_checker);
-    return ();
-}
+//
+// External
+// 
 
 // @notice Record global data to checkpoint
 @external
@@ -665,8 +610,7 @@ func checkpoint{
 }
 
 // @notice Deposit `value` tokens for `address` and add to the lock
-// @dev Anyone (even a smart contract) can deposit for someone else, but
-//      cannot extend their locktime and deposit for a brand new user
+// @dev Anyone (even a smart contract) can deposit for someone else
 // @param address User's wallet address
 // @param value Amount to add to user's lock
 @external
@@ -712,7 +656,6 @@ func create_lock{
 
     _check_and_lock_reentrancy();
     let(caller) = get_caller_address();
-    _assert_not_contract(caller);
     let (q, r) = unsigned_div_rem(_unlock_time, WEEK);
     let unlock_time = q * WEEK;  // Locktime is rounded down to weeks
     let (locked: LockedBalance) = _locked.read(caller);
@@ -750,7 +693,6 @@ func increase_amount{
 
     _check_and_lock_reentrancy();
     let(caller) = get_caller_address();
-    _assert_not_contract(caller);
     let (locked: LockedBalance) = _locked.read(caller);
     let (is_value_greater_than_zero) =  uint256_lt(Uint256(0, 0), value);
     with_attr error_message("Need non-zero value"){
@@ -784,7 +726,6 @@ func increase_unlock_time{
 
     _check_and_lock_reentrancy();
     let(caller) = get_caller_address();
-    _assert_not_contract(caller);
     let (q, r) = unsigned_div_rem(unlock_time, WEEK);
     let unlock_time_rounded = q * WEEK;  // Locktime is rounded down to weeks
     let (locked: LockedBalance) = _locked.read(caller);
@@ -809,7 +750,6 @@ func increase_unlock_time{
 
 // @notice Withdraw all tokens for `caller`
 // @dev Only possible if the lock has expired
-// @param current_timestamp Replacement for block.timestamp, will be removed soon
 @external
 func withdraw{
         syscall_ptr : felt*, 
@@ -846,7 +786,7 @@ func withdraw{
 }
 
 //
-// Internal
+// Internal - Checkpoint
 // 
 
 // @dev Record global and per-user data to checkpoint
@@ -1206,6 +1146,10 @@ func _get_new_slope_current_point{
     }
 }
 
+//
+// Internal - Deposit For
+// 
+
 // @dev Deposit and lock tokens for a user
 // @param address User's wallet address
 // @param value Amount to deposit
@@ -1276,6 +1220,9 @@ func _transfer_amount_if_nonzero{
     }
 }
 
+//
+// Internal - View
+// 
 
 // @dev Binary search to estimate timestamp for block number
 // @param block Block to find
@@ -1306,7 +1253,7 @@ func _binary_search_block_epoch{
         } else {    
             let (mid, _) = unsigned_div_rem(_min + _max + 1, 2);
             let (point_history: Point) = _point_history.read(mid);
-            let (new_min, new_max) = _get_new_min_and_max(_min, _max, block, point_history, mid);
+            let (new_min, new_max) = _get_new_min_and_max_binary_search(_min, _max, block, point_history, mid);
             return _binary_search_block_epoch(current_index + 1, new_min, new_max, block);
         }
     }
@@ -1328,7 +1275,7 @@ func _binary_search_user_point_block_epoch{
         } else {
             let (mid, _) = unsigned_div_rem(_min + _max + 1, 2);
             let (point_history: Point) = _user_point_history.read(address, mid);
-            let (new_min, new_max) = _get_new_min_and_max(_min, _max, block, point_history, mid);
+            let (new_min, new_max) = _get_new_min_and_max_binary_search(_min, _max, block, point_history, mid);
             return _binary_search_user_point_block_epoch(current_index + 1, new_min, new_max, address, block);
         }
     }
@@ -1397,7 +1344,7 @@ func _calculate_search_time_bias_values{
 }
 
 // @dev Get change in block and time in balanceOfAt function. Separated `if` branches into internal function for readability
-func _get_d_block_and_d_t{
+func _get_d_block_and_d_t_balance_of_at{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
@@ -1413,7 +1360,7 @@ func _get_d_block_and_d_t{
 }
 
 // @dev Get change in block and time in balanceOfAt function. Separated `if` branches into internal function for readability
-func _get_block_time{
+func _get_block_time_balance_of_at{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
@@ -1429,7 +1376,7 @@ func _get_block_time{
 }
 
 // @dev Get change in block and time in binary search function. Separated `if` branches into internal function for readability
-func _get_new_min_and_max{
+func _get_new_min_and_max_binary_search{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
@@ -1470,16 +1417,11 @@ func _get_dt_total_supply_at{
 
 }
 
-// @dev Check if the call is from a whitelisted smart contract, revert if not. Currently not possible due to accounts being contracts themselves.
-// @param address Address to be checked
-func _assert_not_contract{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(address: felt){
-    return ();
-}
+//
+// Internal - Validations
+// 
 
+// @dev Check if admin is the caller
 func _only_admin{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
