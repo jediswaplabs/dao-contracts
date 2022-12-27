@@ -9,8 +9,22 @@ from starkware.starknet.common.syscalls import get_caller_address, get_block_tim
 from starkware.cairo.common.math import assert_le, assert_not_zero, assert_not_equal
 from starkware.cairo.common.math_cmp import is_le, is_le_felt
 from starkware.cairo.common.alloc import alloc
-from starkware.cairo.common.uint256 import (Uint256, uint256_le, uint256_lt, uint256_check, uint256_eq, uint256_sqrt, uint256_unsigned_div_rem)
-from contracts.utils.math import uint256_checked_add, uint256_checked_sub_lt, uint256_checked_mul, uint256_felt_checked_mul,uint256_checked_sub_le
+from starkware.cairo.common.uint256 import (
+    Uint256, 
+    uint256_le, 
+    uint256_lt, 
+    uint256_check, 
+    uint256_eq, 
+    uint256_sqrt, 
+    uint256_unsigned_div_rem
+)
+from contracts.utils.math import (
+    uint256_checked_add, 
+    uint256_checked_sub_lt, 
+    uint256_checked_mul, 
+    uint256_felt_checked_mul,
+    uint256_checked_sub_le
+)
 from starkware.starknet.common.messages import send_message_to_l1
 
 //
@@ -738,9 +752,7 @@ func _total_vested_of{
         tempvar range_check_ptr = range_check_ptr;
         return (amount=Uint256(0,0));
     } else {
-        // let (diff1: felt) = _time - start_time;
         let (diff1: Uint256) = uint256_checked_sub_le(Uint256(_time, 0), Uint256(start_time, 0));
-        // let (diff2: felt) = end_time - start_time;
         let (diff2: Uint256) = uint256_checked_sub_le(Uint256(end_time, 0), Uint256(start_time, 0));
         let (diff1_mul_locked: Uint256) = uint256_checked_mul(locked, diff1);
         let (diff1_mul_locked_div_diff2: Uint256,_) = uint256_unsigned_div_rem(diff1_mul_locked, diff2);
@@ -759,10 +771,8 @@ func _total_vested_of{
             return (amount=diff1_mul_locked_div_diff2);
         }
     }
-    // local syscall_ptr: felt* = syscall_ptr;
-    // local pedersen_ptr: HashBuiltin* = pedersen_ptr;
-}
 
+}
 
 func _total_vested{
         syscall_ptr : felt*, 
@@ -784,9 +794,7 @@ func _total_vested{
         tempvar range_check_ptr = range_check_ptr;
         return (amount=Uint256(0,0));
     } else {
-        // let (diff1: felt) = block_timestamp - start_time;
         let (diff1: Uint256) = uint256_checked_sub_le(Uint256(block_timestamp, 0), Uint256(start_time, 0));
-        // let (diff2: felt) = end_time - start_time;
         let (diff2: Uint256) = uint256_checked_sub_le(Uint256(end_time, 0), Uint256(start_time, 0));
         let (diff1_mul_locked: Uint256) = uint256_checked_mul(locked, diff1);
         let (diff1_mul_locked_div_diff2: Uint256,_) = uint256_unsigned_div_rem(diff1_mul_locked, diff2);
@@ -803,15 +811,7 @@ func _total_vested{
             tempvar range_check_ptr = range_check_ptr;
             return (amount=diff1_mul_locked_div_diff2);
         }
-        // tempvar syscall_ptr = syscall_ptr;
-        // tempvar pedersen_ptr = pedersen_ptr;
-        // tempvar range_check_ptr = range_check_ptr;
     }
-    // tempvar syscall_ptr = syscall_ptr;
-    // tempvar pedersen_ptr = pedersen_ptr;
-    // tempvar range_check_ptr = range_check_ptr;
-    // local syscall_ptr: felt* = syscall_ptr;
-    // local pedersen_ptr: HashBuiltin* = pedersen_ptr;
 }
 
 func _fund{
