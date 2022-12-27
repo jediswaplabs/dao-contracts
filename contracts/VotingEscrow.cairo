@@ -22,7 +22,15 @@ from starkware.starknet.common.syscalls import (
 from starkware.cairo.common.math import assert_not_zero, assert_le, assert_lt, unsigned_div_rem, signed_div_rem
 from starkware.cairo.common.math_cmp import is_le, is_not_zero
 from starkware.cairo.common.uint256 import (
-    Uint256, uint256_add, uint256_sub, uint256_mul, uint256_unsigned_div_rem, uint256_eq, uint256_le, uint256_lt, uint256_check
+    Uint256, 
+    uint256_add, 
+    uint256_sub, 
+    uint256_mul, 
+    uint256_unsigned_div_rem, 
+    uint256_eq, 
+    uint256_le, 
+    uint256_lt, 
+    uint256_check
 )
 
 
@@ -448,7 +456,7 @@ func get_last_user_slope{
 // @param _idx User epoch number
 // @return ts Epoch time of the checkpoint
 @view
-func user_point_history__ts{
+func user_point_history_ts{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
