@@ -231,3 +231,29 @@ func test_mintable_in_timeframe_multiple_epochs{syscall_ptr: felt*, pedersen_ptr
 
     return ();
 }
+
+@external
+func test_available_supply{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(){
+    alloc_locals;
+
+    local erc20_mesh_address;
+    local deployer_address;
+
+    %{
+        ids.erc20_mesh_address = context.erc20_mesh_address
+        ids.deployer_address = context.deployer_address
+    %}
+
+    let (creation_time) = IERC20MESH.start_epoch_time(contract_address=erc20_mesh_address);
+    let (initial_supply) = IERC20MESH.available_supply(contract_address=erc20_mesh_address);
+    let (rate) = IERC20MESH.rate(contract_address=erc20_mesh_address);
+
+    let current_timestamp = 86400 * 372; // Fast forward 1 week
+    %{ stop_warp = warp(ids.current_timestamp, target_contract_address=ids.erc20_mesh_address) %}
+    let expected_supply = initial_supply.low + (current_timestamp - creation_time.low) * rate.low;
+    let (current_supply) = IERC20MESH.available_supply(contract_address=erc20_mesh_address);
+    assert expected_supply = current_supply.low;
+    %{ stop_warp() %}
+
+    return ();
+}
