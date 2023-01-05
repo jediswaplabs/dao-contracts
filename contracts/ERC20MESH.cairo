@@ -40,9 +40,9 @@ func UpdateMiningParameters(time: felt, rate: Uint256, supply: Uint256) {
 func SetMinter(minter: felt) {
 }
 
-// @event
-// func SetOwner(owner: felt) {
-// }
+@event
+func SetOwner(owner: felt) {
+}
 
 //
 // Storage
@@ -579,9 +579,8 @@ func set_minter{
         range_check_ptr
     }(new_minter: felt) -> (new_minter: felt){
     _only_owner();
-    // TODO: This should rather be assert_zero(old_minter)
-    // https://github.com/curvefi/curve-dao-contracts/blob/master/contracts/ERC20CRV.vy#L233
-    assert_not_zero(new_minter);
+    let (old_minter) = _minter.read();
+    assert old_minter = 0;
     _minter.write(new_minter);
     SetMinter.emit(new_minter);
     return (new_minter=new_minter);
@@ -600,6 +599,9 @@ func transfer_ownership{
     _only_owner();
     assert_not_zero(new_owner);
     _owner.write(new_owner);
+
+    SetOwner.emit(new_owner);
+
     return (new_owner=new_owner);
 }
 
