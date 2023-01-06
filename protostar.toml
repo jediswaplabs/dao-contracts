@@ -6,4 +6,5 @@ lib-path = "lib"
 ERC20MESH = ["contracts/ERC20MESH.cairo"]
 Minter = ["contracts/Minter.cairo"]
 VotingEscrow = ["contracts/VotingEscrow.cairo"]
+GaugeController = ["contracts/GaugeController.cairo"]
 
