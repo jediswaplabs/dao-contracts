@@ -10,6 +10,7 @@
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import get_caller_address
 from starkware.cairo.common.math import assert_not_zero, assert_le, assert_lt, unsigned_div_rem
+from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.uint256 import (
     Uint256, uint256_add, uint256_sub, uint256_mul, uint256_unsigned_div_rem, uint256_eq, uint256_le, uint256_lt, uint256_check
 )
@@ -572,23 +573,445 @@ func apply_transfer_ownership{
     return ();
 }
 
+// @notice Add gauge `addr` of type `gauge_type` with weight `weight`
+// @param addr Gauge address
+// @param gauge_type Gauge type
+// @param weight Gauge weight
+@external
+func add_gauge{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (addr: felt, gauge_type: felt, weight: felt) {
+    alloc_locals;
+
+    let (sender) = get_caller_address();
+    let (admin) = _admin.read();
+    assert sender = admin;
+
+    assert_le(0, gauge_type);
+    let (n_gauge_types) = _n_gauge_types.read();
+    assert_lt(gauge_type, n_gauge_types);
+
+    let (current_gauge_type) = _gauge_types.read(addr);
+    assert current_gauge_type = 0;
+
+    let (n) = _n_gauges.read();
+    _n_gauges.write(n + 1);
+    _gauges.write(n, addr);
+
+    _gauge_types.write(addr, gauge_type + 1);
+    let (current_timestamp) = get_block_timestamp();
+    // Round to nearest week
+    let (q, _) = unsigned_div_rem(current_timestamp + WEEK, WEEK);
+    let next_time = q * WEEK;
+
+    _update_gauge_parameters(addr, gauge_type, weight, next_time);
+
+    _time_weight.write(addr, next_time);
+
+    NewGauge.emit(addr, gauge_type, weight);
+
+    return ();
+}
+
+// @notice Checkpoint to fill data common for all gauges
+@external
+func checkpoint{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } () {
+    _get_total();
+    return ();
+}
+
+// @notice Checkpoint to fill data for both a specific gauge and common for all gauges
+// @param addr Gauge address
+@external
+func checkpoint_gauge{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (addr: felt) {
+    _get_weight(addr);
+    _get_total();
+    return ();
+}
+
 //
 // Internal
 //
+
+// @notice Update gauge parameters
+// @param addr Gauge address
+// @param gauge_type Gauge type
+// @param weight Gauge weight
+// @param next_time Next time to update
+func _update_gauge_parameters{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (addr: felt, gauge_type: felt, weight: felt, next_time: felt) {
+    alloc_locals;
+
+    let is_weight_less_than_equal_zero = is_le(weight, 0);
+    // If weight is greater than 0 (!weight <=0)
+    if (is_weight_less_than_equal_zero == 0) {
+        let (type_weight) = _get_type_weight(gauge_type);
+        let (old_sum) = _get_sum(gauge_type);
+        let (old_total) = _get_total();
+
+        let (pt_sum: Point) = _points_sum.read(gauge_type, next_time);
+        let new_pt_sum: Point = Point(old_sum + weight, pt_sum.slope);
+        _points_sum.write(gauge_type, next_time, new_pt_sum);
+        _time_sum.write(gauge_type, next_time);
+        _points_total.write(next_time, old_total + type_weight * weight);
+        _time_total.write(next_time);
+
+        let (pt_weight: Point) = _points_weight.read(addr, next_time);
+        let new_pt_weight: Point = Point(weight, pt_weight.slope);
+        _points_weight.write(addr, next_time, new_pt_weight);
+        return ();
+    } else {
+        let (time_sum) = _time_sum.read(gauge_type);
+        if (time_sum == 0) {
+            _time_sum.write(gauge_type, next_time);
+            return ();
+        } else {
+            return ();
+        }
+    }
+
+}
 
 // @notice Fill historic type weights week-over-week for missed checkins. Use recursion
 // and return the type weight for the future week
 // @param gauge_type Gauge type id
 // @return Type weight
-// func _get_type_weight{
-//         syscall_ptr : felt*,
-//         pedersen_ptr : HashBuiltin*,
-//         range_check_ptr
-//     } () {
-//     alloc_locals;
+func _get_type_weight{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (gauge_type: felt) -> (type_weight: felt) {
+    alloc_locals;
 
-//     let (t) = _time_type_weight.read(type_id);
+    let (t) = _time_type_weight.read(gauge_type);
+    let is_t_less_than_equal_zero = is_le(t, 0);
 
-    
-// }
+    // If t is greater than 0 (!t <=0)
+    if (is_t_less_than_equal_zero == 0) {
+        let (w) = _points_type_weight.read(gauge_type, t);
+
+        // Recurse through range and set points and time weights
+        _assign_points_and_time_type_weights(gauge_type, t, w, 0);
+
+        return (type_weight=w);
+    } else {
+        return (type_weight=0);
+    }
+}
+
+func _assign_points_and_time_type_weights{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (gauge_type: felt, t: felt, w: felt, index: felt) {
+    alloc_locals;
+    let (current_timestamp) = get_block_timestamp();
+
+    if (index == 500) {
+        return ();
+    } else {
+        let is_current_timestamp_less_than_equal_t = is_le(current_timestamp, t);
+        if (is_current_timestamp_less_than_equal_t == 1) {
+            return ();
+        } else {
+            let new_t = t + WEEK;
+            _points_type_weight.write(gauge_type, new_t, w);
+
+            let is_current_timestamp_less_than_equal_new_t = is_le(current_timestamp, new_t);
+            let new_index = index + 1;
+            if (is_current_timestamp_less_than_equal_new_t == 1) {
+                _time_type_weight.write(gauge_type, new_t);
+                return _assign_points_and_time_type_weights(gauge_type, new_t, w, new_index);
+            } else {
+                return _assign_points_and_time_type_weights(gauge_type, new_t, w, new_index);
+            }
+        }
+    }
+}
+
+// @notice Fill sum of gauge weights for the same type week-over-week for
+// missed checkins and return the sum for the future week
+// @param gauge_type Gauge type id
+// @return Sum of weights
+func _get_sum{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (gauge_type: felt) -> (sum: felt) {
+    alloc_locals;
+
+    let (t) = _time_sum.read(gauge_type);
+    let is_t_less_than_equal_zero = is_le(t, 0);
+
+    // If t is greater than 0 (!t <=0)
+    if (is_t_less_than_equal_zero == 0) {
+        let (pt: Point) = _points_sum.read(gauge_type, t);
+
+        // Recurse through range and set points and time weights
+        let (new_sum) = _assign_points_and_time_sum(gauge_type, t, pt, 0);
+
+        return (sum=new_sum);
+    } else {
+        return (sum=0);
+    }
+}
+
+func _assign_points_and_time_sum{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (gauge_type: felt, t: felt, pt: Point, index: felt) -> (sum: felt) {
+    alloc_locals;
+    let (current_timestamp) = get_block_timestamp();
+
+    if (index == 500) {
+        return (sum=pt.bias);
+    } else {
+        let is_current_timestamp_less_than_equal_t = is_le(current_timestamp, t);
+        if (is_current_timestamp_less_than_equal_t == 1) {
+            return (sum=pt.bias);
+        } else {
+            let new_t = t + WEEK;
+
+            let d_bias = pt.slope * WEEK;
+            let (d_slope) = _changes_sum.read(gauge_type, t);
+
+            tempvar new_bias;
+            tempvar new_slope;
+            let is_pt_bias_less_than_equal_d_bias = is_le(pt.bias, d_bias);
+            if (is_pt_bias_less_than_equal_d_bias == 0) {
+                assert new_bias = pt.bias - d_bias;
+                assert new_slope = pt.slope - d_slope;
+                tempvar syscall_ptr = syscall_ptr;
+                tempvar pedersen_ptr = pedersen_ptr;
+                tempvar range_check_ptr = range_check_ptr;
+            } else {
+                assert new_bias = 0;
+                assert new_slope = 0;
+                tempvar syscall_ptr = syscall_ptr;
+                tempvar pedersen_ptr = pedersen_ptr;
+                tempvar range_check_ptr = range_check_ptr;
+            }
+
+            let new_point: Point = Point(new_bias, new_slope);
+            _points_sum.write(gauge_type, new_t, new_point);
+
+            let is_current_timestamp_less_than_equal_new_t = is_le(current_timestamp, new_t);
+            let new_index = index + 1;
+            if (is_current_timestamp_less_than_equal_new_t == 1) {
+                _time_sum.write(gauge_type, new_t);
+                return _assign_points_and_time_sum(gauge_type, new_t, new_point, new_index);
+            } else {
+                return _assign_points_and_time_sum(gauge_type, new_t, new_point, new_index);
+            }
+        }
+    }
+}
+
+// @notice Fill historic total weights week-over-week for missed checkins
+// and return the total for the future week
+// @return Total weight
+func _get_total{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } () -> (total: felt) {
+    alloc_locals;
+
+    let (t) = _time_total.read();
+    let (n_gauge_types) = _n_gauge_types.read();
+
+    tempvar new_t;
+    let is_t_less_than_equal_zero = is_le(t, 0);
+    // If t is greater than 0 (!t <=0)
+    if (is_t_less_than_equal_zero == 0) {
+        // If we have already checkpointed - still need to change the value
+        assert new_t = t - WEEK;
+        tempvar syscall_ptr = syscall_ptr;
+        tempvar pedersen_ptr = pedersen_ptr;
+        tempvar range_check_ptr = range_check_ptr;
+    } else {
+        assert new_t = t;
+        tempvar syscall_ptr = syscall_ptr;
+        tempvar pedersen_ptr = pedersen_ptr;
+        tempvar range_check_ptr = range_check_ptr;
+    }
+
+    let (points_total) = _points_total.read(t);
+    // Recurse through range and call get sum and type weight
+    _get_sum_and_type_weight(0, n_gauge_types);
+
+    // Recurse through range and set points and time total
+    let (total) = _assign_points_and_time_total(t, points_total, 0, n_gauge_types);
+
+    return (total=total);
+}
+
+func _get_sum_and_type_weight{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (index: felt, n_gauge_types: felt) {
+    alloc_locals;
+    let (current_timestamp) = get_block_timestamp();
+
+    if (index == 100) {
+        return ();
+    } else {
+        if (index == n_gauge_types) {
+            return ();
+        } else {
+            _get_sum(index);
+            _get_type_weight(index);
+            return _get_sum_and_type_weight(index + 1, n_gauge_types);
+        }
+    }
+}
+
+func _assign_points_and_time_total{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (t: felt, points_total: felt, index: felt, n_gauge_types: felt) -> (total: felt) {
+    alloc_locals;
+    let (current_timestamp) = get_block_timestamp();
+
+    if (index == 500) {
+        return (total=points_total);
+    } else {
+        let is_current_timestamp_less_than_equal_t = is_le(current_timestamp, t);
+        if (is_current_timestamp_less_than_equal_t == 1) {
+            return (total=points_total);
+        } else {
+            let new_t = t + WEEK;
+
+            let (new_points_total) = _get_new_points_total(new_t, points_total, 0, n_gauge_types);
+
+            _points_total.write(new_t, new_points_total);
+
+            // If new timestamp is > block timestamp
+            let is_current_timestamp_less_than_equal_new_t = is_le(current_timestamp, new_t);
+            if (is_current_timestamp_less_than_equal_new_t == 1) {
+                _time_total.write(new_t);
+                return _assign_points_and_time_total(new_t, new_points_total, index + 1, n_gauge_types);
+            } else {
+                return _assign_points_and_time_total(new_t, new_points_total, index + 1, n_gauge_types);
+            }
+        }
+    }
+}
+
+func _get_new_points_total{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (t: felt, points_total: felt, gauge_type: felt, n_gauge_types: felt) -> (new_points_total: felt) {
+    alloc_locals;
+
+    if (gauge_type == 100) {
+        return (new_points_total=points_total);
+    } else {
+        if (gauge_type == n_gauge_types) {
+            return (new_points_total=points_total);
+        } else {
+            let (point_sum: Point) = _points_sum.read(gauge_type, t);
+            let type_sum = point_sum.bias;
+            let (type_weight) = _points_type_weight.read(gauge_type, t);
+
+            let new_points_total = points_total + type_sum * type_weight;
+            return _get_new_points_total(t, new_points_total, gauge_type + 1, n_gauge_types);
+        }
+    }
+}
+
+// @notice Fill historic gauge weights week-over-week for missed checkins
+// and return the total for the future week
+// @param gauge_addr Address of the gauge
+// @return Gauge weight
+func _get_weight{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (gauge_addr: felt) -> (weight: felt) {
+    alloc_locals;
+
+    let (t) = _time_weight.read(gauge_addr);
+
+    let is_t_less_than_equal_zero = is_le(t, 0);
+    // If t is greater than 0 (!t <=0)
+    if (is_t_less_than_equal_zero == 0) {
+        let (pt: Point) = _points_weight.read(gauge_addr, t);
+
+        let (new_pt: Point) = _assign_points_and_time_weight(gauge_addr, t, pt, 0);
+
+        return (weight=new_pt.bias);
+    } else {
+        return (weight=0);
+    }
+}
+
+func _assign_points_and_time_weight{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (gauge_addr: felt, t: felt, pt: Point, index: felt) -> (new_pt: Point) {
+    alloc_locals;
+    let (current_timestamp) = get_block_timestamp();
+
+    if (index == 500) {
+        return (new_pt=pt);
+    } else {
+        let is_current_timestamp_less_than_equal_t = is_le(current_timestamp, t);
+        if (is_current_timestamp_less_than_equal_t == 1) {
+            return (new_pt=pt);
+        } else {
+            let new_t = t + WEEK;
+
+            let d_bias = pt.slope * WEEK;
+            let (d_slope) = _changes_weight.read(gauge_addr, t);
+
+            tempvar new_bias;
+            tempvar new_slope;
+            let is_pt_bias_less_than_equal_d_bias = is_le(pt.bias, d_bias);
+            if (is_pt_bias_less_than_equal_d_bias == 0) {
+                assert new_bias = pt.bias - d_bias;
+                assert new_slope = pt.slope - d_slope;
+                tempvar syscall_ptr = syscall_ptr;
+                tempvar pedersen_ptr = pedersen_ptr;
+                tempvar range_check_ptr = range_check_ptr;
+            } else {
+                assert new_bias = 0;
+                assert new_slope = 0;
+                tempvar syscall_ptr = syscall_ptr;
+                tempvar pedersen_ptr = pedersen_ptr;
+                tempvar range_check_ptr = range_check_ptr;
+            }
+
+            let new_pt: Point = Point(new_bias, new_slope);
+            _points_weight.write(gauge_addr, new_t, new_pt);
+
+            // If new timestamp is > block timestamp
+            let is_current_timestamp_less_than_equal_new_t = is_le(current_timestamp, new_t);
+            if (is_current_timestamp_less_than_equal_new_t == 1) {
+                _time_weight.write(gauge_addr, new_t);
+                return _assign_points_and_time_weight(gauge_addr, new_t, new_pt, index + 1);
+            } else {
+                return _assign_points_and_time_weight(gauge_addr, new_t, new_pt, index + 1);
+            }
+        }
+    }
+}
 
