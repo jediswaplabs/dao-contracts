@@ -35,7 +35,7 @@ struct VotedSlope{
 }
 
 @contract_interface
-namespace VotingEscrow{
+namespace IVotingEscrow{
     func get_last_user_slope(address: felt) -> (slope: felt){
     }
     
@@ -528,6 +528,77 @@ func time_type_weight{
     return (time=time);
 }
 
+// @notice Get Gauge relative weight (not more than 1.0) normalized to 1e18
+// (e.g. 1.0 == 1e18). Inflation which will be received by it is
+// inflation_rate * relative_weight / 1e18
+// @param addr Gauge address
+// @param time Relative weight at the specified timestamp in the past or present
+// @return Value of relative weight normalized to 1e18
+@view
+func gauge_relative_weight{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (addr: felt) -> (weight: felt) {
+    let (current_timestamp) = get_block_timestamp();
+    return _gauge_relative_weight(addr, current_timestamp);
+}
+
+// @notice Get current gauge weight
+// @param addr Gauge address
+// @return Gauge weight
+@view
+func get_gauge_weight{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (addr: felt) -> (weight: felt) {
+    let (time_weight) = _time_weight.read(addr);
+    let (pt) = _points_weight.read(addr, time_weight);
+    return (weight=pt.bias);
+}
+
+// @notice Get current type weight
+// @param type_id Type id
+// @return Type weight
+@view
+func get_type_weight{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (type_id: felt) -> (weight: felt) {
+    let (time_weight) = _time_type_weight.read(type_id);
+    let (weight) = _points_type_weight.read(type_id, time_weight);
+    return (weight=weight);
+}
+
+// @notice Get current total (type-weighted) weight
+// @return Total weight
+@view
+func get_total_weight{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } () -> (weight: felt) {
+    let (time_total) = _time_total.read();
+    let (points_total) = _points_total.read(time_total);
+    return (weight=points_total);
+}
+
+// @notice Get sum of gauge weights per type
+// @param type_id Type id
+// @return Sum of gauge weights
+@view
+func get_weights_sum_per_type{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (type_id: felt) -> (weight: felt) {
+    let (time_sum) = _time_sum.read(type_id);
+    let (points_sum: Point) = _points_sum.read(type_id, time_sum);
+    return (weight=points_sum.bias);
+}
+
 //
 // Externals
 //
@@ -601,8 +672,8 @@ func add_gauge{
     _gauges.write(n, addr);
 
     _gauge_types.write(addr, gauge_type + 1);
-    let (current_timestamp) = get_block_timestamp();
     // Round to nearest week
+    let (current_timestamp) = get_block_timestamp();
     let (q, _) = unsigned_div_rem(current_timestamp + WEEK, WEEK);
     let next_time = q * WEEK;
 
@@ -639,9 +710,332 @@ func checkpoint_gauge{
     return ();
 }
 
+// @notice Get gauge weight normalized to 1e18 and also fill all the unfilled
+// values for type and gauge records
+// @dev Any address can call, however nothing is recorded if the values are filled already
+// @param addr Gauge address
+// @param time Relative weight at the specified timestamp in the past or present
+// @return Value of relative weight normalized to 1e18
+@external
+func gauge_relative_weight_write{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (addr: felt) -> (weight: felt) {
+    alloc_locals;
+
+    _get_weight(addr);
+    _get_total(); // Also calculates get_sum
+
+    let (current_timestamp) = get_block_timestamp();
+    return _gauge_relative_weight(addr, current_timestamp);
+}
+
+// @notice Add gauge type with name `_name` and weight `weight`
+// @param _name Name of gauge type
+// @param weight Weight of gauge type
+@external
+func add_type{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (name: felt, weight: felt) {
+    alloc_locals;
+
+    let (sender) = get_caller_address();
+    let (admin) = _admin.read();
+    assert sender = admin;
+
+    let (type_id) = _n_gauge_types.read();
+    _gauge_type_names.write(type_id, name);
+    _n_gauge_types.write(type_id + 1);
+
+    if (weight == 0) {
+        return ();
+    } else {
+        _change_type_weight(type_id, weight);
+        AddType.emit(name, type_id);
+        return ();
+    }
+}
+
+// @notice Change gauge type `type_id` weight to `weight`
+// @param type_id Gauge type id
+// @param weight New Gauge weight
+@external
+func change_type_weight{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (type_id: felt, weight: felt) {
+    alloc_locals;
+
+    let (sender) = get_caller_address();
+    let (admin) = _admin.read();
+    assert sender = admin;
+
+    _change_type_weight(type_id, weight);
+    return ();
+}
+
+// @notice Change weight of gauge `addr` to `weight`
+// @param addr `GaugeController` contract address
+// @param weight New Gauge weight
+@external
+func change_gauge_weight{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (addr: felt, weight: felt) {
+    alloc_locals;
+
+    let (sender) = get_caller_address();
+    let (admin) = _admin.read();
+    assert sender = admin;
+
+    _change_gauge_weight(addr, weight);
+
+    return ();
+}
+
+// @notice Allocate voting power for changing pool weights
+// @param _gauge_addr Gauge which `msg.sender` votes for
+// @param _user_weight Weight for a gauge in bps (units of 0.01%). Minimal is 0.01%. Ignored if 0
+@external
+func vote_for_gauge_weights{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (gauge_address: felt, user_weight: felt) {
+    alloc_locals;
+
+    let (escrow) = _voting_escrow.read();
+    let (sender) = get_caller_address();
+    let (slope) = IVotingEscrow.get_last_user_slope(contract_address=escrow, address=sender);
+    let (lock_end) = IVotingEscrow.locked__end(contract_address=escrow, address=sender);
+    let (n_gauges) = _n_gauges.read();
+    // Round to nearest week
+    let (current_timestamp) = get_block_timestamp();
+    let (q, _) = unsigned_div_rem(current_timestamp + WEEK, WEEK);
+    let next_time = q * WEEK;
+
+    assert_lt(next_time, lock_end); // Your token lock expires too soon
+    // You used all your voting power
+    assert_le(0, user_weight);
+    assert_le(user_weight, 10000); 
+
+    // Cannot vote so often
+    let (last_user_vote) = _last_user_vote.read(sender, gauge_address);
+    assert_le(last_user_vote + WEIGHT_VOTE_DELAY, current_timestamp);
+
+    let (gauge_type_plus_one) = _gauge_types.read(gauge_address);
+    let gauge_type = gauge_type_plus_one - 1;
+    assert_le(0, gauge_type); // Gauge not added
+
+    // Prepare slopes and biases in memory
+    let (old_slope: VotedSlope) = _vote_user_slopes.read(sender, gauge_address);
+    
+    let (old_dt) = _get_old_dt_vote_for_gauge_weights(old_slope, next_time);
+    let old_bias = old_slope.slope * old_dt;
+    let (new_user_slope, _) = unsigned_div_rem(slope * user_weight, 10000);
+    let new_slope = VotedSlope(slope=new_user_slope, power=user_weight, end=next_time);
+    assert_le(next_time, lock_end); // dev: raises when expired
+    let new_dt = lock_end - next_time;
+    let new_bias = new_user_slope * new_dt;
+
+    // Check and update powers (weights) used
+    let (power_used) = _vote_user_power.read(sender);
+    let new_power_used = power_used + user_weight - old_slope.power;
+    _vote_user_power.write(sender, new_power_used);
+    // Used too much power
+    assert_le(0, new_power_used);
+    assert_le(new_power_used, 10000);
+
+    // Remove old and schedule new slope changes
+    // Remove slope changes for old slopes
+    // Schedule recording of initial slope for next_time
+    let (old_weight_bias) = _get_weight(gauge_address);
+    let (old_weight_pt) = _points_weight.read(gauge_address, next_time);
+    let old_weight_slope = old_weight_pt.slope;
+    let (old_sum_bias) = _get_sum(gauge_type);
+    let (old_sum_pt) = _points_sum.read(gauge_type, next_time);
+    let old_sum_slope = old_sum_pt.slope;
+
+    let (max_of_weight_bias) = _get_max(old_weight_bias + new_bias, old_bias);
+    let (max_of_sum_bias) = _get_max(old_sum_bias + new_bias, old_bias);
+
+    let is_old_slope_end_less_than_equal_next_time = is_le(old_slope.end, next_time);
+    // If old_slope.end > next_time
+    if (is_old_slope_end_less_than_equal_next_time == 0) {
+        let (max_of_weight_slope) = _get_max(old_weight_slope + new_slope.slope, old_slope.slope);
+        let new_weight_pt = Point(bias=max_of_weight_bias - old_bias, slope=max_of_weight_slope - old_slope.slope);
+        _points_weight.write(gauge_address, next_time, new_weight_pt);
+
+        let (max_of_sum_slope) = _get_max(old_sum_slope + new_slope.slope, old_slope.slope);
+        let new_sum_pt = Point(bias=max_of_sum_bias - old_bias, slope=max_of_sum_slope - old_slope.slope);
+        _points_sum.write(gauge_type, next_time, new_sum_pt);
+
+        tempvar syscall_ptr = syscall_ptr;
+        tempvar pedersen_ptr = pedersen_ptr;
+        tempvar range_check_ptr = range_check_ptr;
+    } else {
+        let new_weight_pt = Point(bias=max_of_weight_bias - old_bias, slope=old_weight_pt.slope + new_slope.slope);
+        _points_weight.write(gauge_address, next_time, new_weight_pt);
+
+        let new_sum_pt = Point(bias=max_of_sum_bias - old_bias, slope=old_sum_pt.slope + new_slope.slope);
+        _points_sum.write(gauge_type, next_time, new_sum_pt);
+
+        tempvar syscall_ptr = syscall_ptr;
+        tempvar pedersen_ptr = pedersen_ptr;
+        tempvar range_check_ptr = range_check_ptr;
+    }
+
+    let is_old_slope_end_less_than_equal_current_timestamp = is_le(old_slope.end, current_timestamp);
+    // If old_slope.end > current_timestamp, cancel old slope changes if they still didn't happen
+    if (is_old_slope_end_less_than_equal_current_timestamp == 0) {
+        let (old_changes_weight) = _changes_weight.read(gauge_address, old_slope.end);
+        _changes_weight.write(gauge_address, old_slope.end, old_changes_weight - old_slope.slope);
+
+        let (old_changes_sum) = _changes_sum.read(gauge_type, old_slope.end);
+        _changes_sum.write(gauge_type, old_slope.end, old_changes_sum - old_slope.slope);
+
+        tempvar syscall_ptr = syscall_ptr;
+        tempvar pedersen_ptr = pedersen_ptr;
+        tempvar range_check_ptr = range_check_ptr;
+    } else {
+        tempvar syscall_ptr = syscall_ptr;
+        tempvar pedersen_ptr = pedersen_ptr;
+        tempvar range_check_ptr = range_check_ptr;
+    }
+
+    // Add slope changes for new slopes
+    let (new_changes_weight) = _changes_weight.read(gauge_address, new_slope.end);
+    _changes_weight.write(gauge_address, new_slope.end, new_changes_weight + new_slope.slope);
+
+    let (new_changes_sum) = _changes_sum.read(gauge_type, new_slope.end);
+    _changes_sum.write(gauge_type, new_slope.end, new_changes_sum + new_slope.slope);
+
+    _get_total();
+
+    _vote_user_slopes.write(sender, gauge_address, new_slope);
+
+    // Record last action time
+    _last_user_vote.write(sender, gauge_address, current_timestamp);
+
+    VoteForGauge.emit(current_timestamp, sender, gauge_address, user_weight);
+
+    return ();
+}
+
 //
 // Internal
 //
+
+// @notice Get Gauge relative weight (not more than 1.0) normalized to 1e18
+// (e.g. 1.0 == 1e18). Inflation which will be received by it is
+// inflation_rate * relative_weight / 1e18
+// @param addr Gauge address
+// @param time Relative weight at the specified timestamp in the past or present
+// @return Value of relative weight normalized to 1e18
+func _gauge_relative_weight{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (addr: felt, time: felt) -> (weight: felt) {
+    alloc_locals;
+
+    // Time is rounded by week
+    let (q, _) = unsigned_div_rem(time, WEEK);
+    let t = q * WEEK;
+
+    let (total_weight) = _points_total.read(t);
+
+    let is_total_weight_less_than_equal_zero = is_le(total_weight, 0);
+    // If total weight > 0
+    if (is_total_weight_less_than_equal_zero == 0) {
+        let (gauge_type_plus_one) = _gauge_types.read(addr);
+        let (type_weight) = _points_type_weight.read(gauge_type_plus_one - 1, t);
+        let (pt: Point) = _points_weight.read(addr, t);
+
+        let (weight, _) = unsigned_div_rem(MULTIPLIER * type_weight * pt.bias, total_weight);
+        
+        return (weight=weight);
+    } else {
+        return (weight=0);
+    }
+}
+
+// @notice Change type weight
+// @param type_id Type id
+// @param weight New type weight
+func _change_type_weight{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (type_id: felt, weight: felt) {
+    alloc_locals;
+
+    let (old_weight) = _get_type_weight(type_id);
+    let (old_sum) = _get_sum(type_id);
+    let (old_total_weight) = _get_total();
+    
+    // Round to nearest week
+    let (current_timestamp) = get_block_timestamp();
+    let (q, _) = unsigned_div_rem(current_timestamp + WEEK, WEEK);
+    let next_time = q * WEEK;
+
+    let new_total_weight = old_total_weight + old_sum * weight - old_sum * old_weight;
+    _points_total.write(next_time, new_total_weight);
+    _points_type_weight.write(type_id, next_time, weight);
+    _time_total.write(next_time);
+    _time_type_weight.write(type_id, next_time);
+
+    NewTypeWeight.emit(type_id, next_time, weight, new_total_weight);
+
+    return ();
+}
+
+// Change gauge weight
+// Only needed when testing in reality
+func _change_gauge_weight{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (addr: felt, weight: felt) {
+    alloc_locals;
+
+    let (gauge_type_plus_one) = _gauge_types.read(addr);
+    let gauge_type = gauge_type_plus_one - 1;
+    let (old_gauge_weight) = _get_weight(addr);
+    let (type_weight) = _get_type_weight(gauge_type);
+    let (old_sum) = _get_sum(gauge_type);
+    let (old_total_weight) = _get_total();
+    // Round to nearest week
+    let (current_timestamp) = get_block_timestamp();
+    let (q, _) = unsigned_div_rem(current_timestamp + WEEK, WEEK);
+    let next_time = q * WEEK;
+
+    // TODO: double check if this is the correct time input
+    let (pt_weight: Point) = _points_weight.read(addr, next_time);
+    let new_pt_weight: Point = Point(weight, pt_weight.slope);
+    _points_weight.write(addr, next_time, new_pt_weight);
+    _time_weight.write(addr, next_time);
+
+    let new_sum = old_sum + weight - old_gauge_weight;
+    let (pt_sum: Point) = _points_sum.read(gauge_type, next_time);
+    let new_pt_sum: Point = Point(new_sum, pt_sum.slope);
+    _points_sum.write(gauge_type, next_time, new_pt_sum);
+    _time_sum.write(gauge_type, next_time);
+    
+    let new_total_weight = old_total_weight + new_sum * type_weight - old_sum * type_weight;
+    _points_total.write(next_time, new_total_weight);
+    _time_total.write(next_time);
+
+    let (current_timestamp) = get_block_timestamp();
+    NewGaugeWeight.emit(addr, current_timestamp, weight, new_total_weight);
+
+    return ();
+}
 
 // @notice Update gauge parameters
 // @param addr Gauge address
@@ -662,6 +1056,7 @@ func _update_gauge_parameters{
         let (old_sum) = _get_sum(gauge_type);
         let (old_total) = _get_total();
 
+        // TODO: double check if this is the correct time input
         let (pt_sum: Point) = _points_sum.read(gauge_type, next_time);
         let new_pt_sum: Point = Point(old_sum + weight, pt_sum.slope);
         _points_sum.write(gauge_type, next_time, new_pt_sum);
@@ -669,6 +1064,7 @@ func _update_gauge_parameters{
         _points_total.write(next_time, old_total + type_weight * weight);
         _time_total.write(next_time);
 
+        // TODO: double check if this is the correct time input
         let (pt_weight: Point) = _points_weight.read(addr, next_time);
         let new_pt_weight: Point = Point(weight, pt_weight.slope);
         _points_weight.write(addr, next_time, new_pt_weight);
@@ -1012,6 +1408,54 @@ func _assign_points_and_time_weight{
                 return _assign_points_and_time_weight(gauge_addr, new_t, new_pt, index + 1);
             }
         }
+    }
+}
+
+func _get_old_dt_vote_for_gauge_weights{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (old_slope: VotedSlope, next_time: felt) -> (old_dt: felt) {
+    alloc_locals;
+
+    let is_old_slope_end_less_than_equal_next_time = is_le(old_slope.end, next_time);
+    // If old_slope.end > next_time
+    if (is_old_slope_end_less_than_equal_next_time == 0) {
+        return(old_dt=old_slope.end - next_time);
+    } else {
+        return (old_dt=0);
+    }
+}
+
+func _get_max{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (a: felt, b: felt) -> (max: felt) {
+    alloc_locals;
+
+    let is_a_less_than_equal_b = is_le(a, b);
+    // If a > b
+    if (is_a_less_than_equal_b == 0) {
+        return (max=a);
+    } else {
+        return (max=b);
+    }
+}
+
+func _get_min{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    } (a: felt, b: felt) -> (min: felt) {
+    alloc_locals;
+
+    let is_a_less_than_equal_b = is_le(a, b);
+    // If a > b
+    if (is_a_less_than_equal_b == 0) {
+        return (min=b);
+    } else {
+        return (min=a);
     }
 }
 
