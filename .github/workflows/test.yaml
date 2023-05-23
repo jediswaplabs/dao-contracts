@@ -1,0 +1,52 @@
+name: Tests
+
+on: [push, pull_request]
+
+env:
+  SCARB_VERSION: v0.2.1
+  PROTOSTAR_VERSION: 0.11.0
+
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Cache Scarb binary
+        uses: actions/cache@v2
+        with:
+          path: ~/.scarb
+          key: scarb-${{ env.SCARB_VERSION }}-${{ runner.os }}
+          restore-keys: scarb-${{ env.SCARB_VERSION }}-
+
+      - name: Scarb Setup
+        run: |
+          if [[ ! -f $HOME/.scarb/bin/scarb ]]; then
+            wget https://github.com/software-mansion/scarb/releases/download/${{ env.SCARB_VERSION }}/scarb-${{ env.SCARB_VERSION }}-x86_64-unknown-linux-gnu.tar.gz
+            mkdir $HOME/.scarb
+            tar -xvzf scarb-${{ env.SCARB_VERSION }}-x86_64-unknown-linux-gnu.tar.gz -C $HOME/.scarb --strip-components=1
+          fi
+          echo "$HOME/.scarb/bin" >> $GITHUB_PATH
+      
+      
+      - name: Scarb Build
+        run: scarb build
+
+      - name: Cache Protostar installation
+        uses: actions/cache@v2
+        with:
+          path: ~/.protostar
+          key: protostar-${{ env.PROTOSTAR_VERSION }}-${{ runner.os }}
+          restore-keys: protostar-${{ env.PROTOSTAR_VERSION }}-
+
+      - name: Protostar Setup
+        run: |
+          if [[ ! -d $HOME/.protostar/dist/protostar ]]; then
+            curl -L https://raw.githubusercontent.com/software-mansion/protostar/master/install.sh | bash -s -- -v $PROTOSTAR_VERSION
+          fi
+          echo "$HOME/.protostar/dist/protostar" >> $GITHUB_PATH
+          
+      - name: Test the code
+        run: | 
+          scarb run test
