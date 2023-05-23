@@ -1,5 +1,5 @@
 [package]
-name = "cairo_template"
+name = "jediswap_dao_contracts"
 version = "0.1.0"
 description = "A minimal template for developing with Cairo 1.0"
 homepage = "https://github.com/auditless/cairo-template"
@@ -10,3 +10,5 @@ test = "protostar test"
 
 [dependencies]
 quaireaux_math = { git = "https://github.com/keep-starknet-strange/quaireaux.git" }
+
+[[target.starknet-contract]]
