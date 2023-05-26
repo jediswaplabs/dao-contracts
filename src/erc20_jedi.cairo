@@ -1,5 +1,5 @@
-// @title Mesh DAO Token
-// @author Mesh Finance
+// @title JediSwap DAO Token
+// @author JediSwap
 // @license MIT
 // @notice ERC20 with piecewise-linear mining supply.
 // @dev Based on the ERC-20 token standard as defined at
@@ -8,7 +8,7 @@
 //      https://github.com/curvefi/curve-dao-contracts/blob/master/contracts/ERC20CRV.vy
 
 #[contract]
-mod ERC20MESH {
+mod ERC20JDI {
     use zeroable::Zeroable;
     use starknet::get_caller_address;
     use starknet::contract_address_const;
