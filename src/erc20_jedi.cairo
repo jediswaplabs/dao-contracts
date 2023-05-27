@@ -12,10 +12,16 @@ use core::traits::Into;
 mod ERC20JDI {
     use zeroable::Zeroable;
     use starknet::get_caller_address;
+    use starknet::get_contract_address;
+    use starknet::get_block_timestamp;
     use starknet::contract_address_const;
     use starknet::ContractAddress;
     use jediswap_dao::fast_power::fast_power;
     use traits::Into;
+    use traits::TryInto;
+    use array::ArrayTrait;
+    use option::OptionTrait;
+    use jediswap_dao::helper::as_u256;
 
     struct Storage {
         _name: felt252,
@@ -28,7 +34,7 @@ mod ERC20JDI {
         _minter: ContractAddress,
         _admin: ContractAddress,
         // Supply variables
-        _mining_epoch: int128,
+        _mining_epoch: u256,
         _start_epoch_time: u256,
         _rate: u256,
         _start_epoch_supply: u256,
@@ -48,12 +54,12 @@ mod ERC20JDI {
     // left for inflation: 57%
 
     // Supply parameters
-    const INITIAL_SUPPLY: u256 = 1303030303;
-    const INITIAL_RATE: u256 = 8714335500000000000; // 274815283 * 10 ** 18 / YEAR
-    const RATE_REDUCTION_TIME: u256 = 31536000; // YEAR
-    const RATE_REDUCTION_COEFFICIENT: u256 = 1189207115002721024;
-    const RATE_DENOMINATOR: u256 = 1000000000000000000;
-    const INFLATION_DELAY: u256 = 86400;
+    const INITIAL_SUPPLY: felt252 = 1303030303;
+    const INITIAL_RATE: felt252 = 8714335500000000000; // 274815283 * 10 ** 18 / YEAR
+    const RATE_REDUCTION_TIME: felt252 = 31536000; // YEAR
+    const RATE_REDUCTION_COEFFICIENT: felt252 = 1189207115002721024;
+    const RATE_DENOMINATOR: felt252 = 1000000000000000000;
+    const INFLATION_DELAY: felt252 = 86400;
 
     #[event]
     fn Transfer(from: ContractAddress, to: ContractAddress, value: u256) {}
@@ -62,7 +68,7 @@ mod ERC20JDI {
     fn Approval(owner: ContractAddress, spender: ContractAddress, value: u256) {}
 
     #[event]
-    fn UpdateMiningParameters(time: u256, rate: u256, supply: u256) {}
+    fn UpdateMiningParameters(time: u64, rate: u256, supply: u256) {}
 
     #[constructor]
     fn constructor(
@@ -70,8 +76,7 @@ mod ERC20JDI {
         symbol_: felt252,
         decimals_: u8,
     ) {
-        let tmp = fast_power(10_u128, decimals_.into());
-        let initial_supply: u256 = INITIAL_SUPPLY * tmp;
+        let initial_supply: u256 = INITIAL_SUPPLY.into() * as_u256(fast_power(10_u128, decimals_.into()), 0_u128);
         let contract_address = get_contract_address();
         _name::write(name_);
         _symbol::write(symbol_);
@@ -82,9 +87,9 @@ mod ERC20JDI {
         _admin::write(contract_address);
         Transfer(contract_address_const::<0>(), contract_address, initial_supply);
 
-        _start_epoch_time::write(get_block_timestamp() + INFLATION_DELAY - RATE_REDUCTION_TIME);
-        _mining_epoch::write(-1);
-        _rate::write(0);
+        _start_epoch_time::write((get_block_timestamp().into() + INFLATION_DELAY - RATE_REDUCTION_TIME).into());
+        _mining_epoch::write(as_u256(0_u128, 0_u128)); // different from curve
+        _rate::write(as_u256(0_u128, 0_u128));
         _start_epoch_supply::write(initial_supply);
     }
 
@@ -279,19 +284,19 @@ mod ERC20JDI {
     // @dev Update mining rate and supply at the start of the epoch Any modifying mining call must also call this
     fn _update_mining_parameters() {
         let mut _rate = _rate::read();
-        let _start_epoch_supply = _start_epoch_supply::read();
+        let mut _start_epoch_supply = _start_epoch_supply::read();
         let _start_epoch_time = _start_epoch_time::read();
         let _mining_epoch = _mining_epoch::read();
 
-        _start_epoch_time::write(_start_epoch_time + RATE_REDUCTION_TIME);
-        _mining_epoch::write(_mining_epoch + 1);
+        _start_epoch_time::write(_start_epoch_time + RATE_REDUCTION_TIME.into());
+        _mining_epoch::write(_mining_epoch + as_u256(1_u128, 0_u128));
 
-        if _rate == 0 {
-            _rate = INITIAL_RATE;
+        if _rate == as_u256(0_u128, 0_u128) {
+            _rate = INITIAL_RATE.into();
         } else {
-            _start_epoch_supply += _rate * RATE_REDUCTION_TIME;
+            _start_epoch_supply += _rate * RATE_REDUCTION_TIME.into();
             _start_epoch_supply::write(_start_epoch_supply);
-            _rate = _rate * RATE_DENOMINATOR / RATE_REDUCTION_COEFFICIENT;
+            _rate = _rate * RATE_DENOMINATOR.into() / RATE_REDUCTION_COEFFICIENT.into();
 
         }
         _rate::write(_rate);
