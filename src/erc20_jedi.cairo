@@ -1,3 +1,4 @@
+use core::traits::Into;
 // @title JediSwap DAO Token
 // @author JediSwap
 // @license MIT
@@ -13,6 +14,8 @@ mod ERC20JDI {
     use starknet::get_caller_address;
     use starknet::contract_address_const;
     use starknet::ContractAddress;
+    use jediswap_dao::fast_power::fast_power;
+    use traits::Into;
 
     struct Storage {
         _name: felt252,
@@ -67,7 +70,8 @@ mod ERC20JDI {
         symbol_: felt252,
         decimals_: u8,
     ) {
-        let initial_supply: u256 = INITIAL_SUPPLY * 10 ** decimals_;
+        let tmp = fast_power(10_u128, decimals_.into());
+        let initial_supply: u256 = INITIAL_SUPPLY * tmp;
         let contract_address = get_contract_address();
         _name::write(name_);
         _symbol::write(symbol_);
