@@ -16,12 +16,16 @@ mod ERC20JDI {
     use starknet::get_block_timestamp;
     use starknet::contract_address_const;
     use starknet::ContractAddress;
-    use jediswap_dao::fast_power::fast_power;
     use traits::Into;
     use traits::TryInto;
     use array::ArrayTrait;
     use option::OptionTrait;
+
+
     use jediswap_dao::helper::as_u256;
+    use jediswap_dao::fast_power::fast_power;
+    use jediswap_dao::ownable::Ownable;
+
 
     struct Storage {
         _name: felt252,
@@ -32,7 +36,6 @@ mod ERC20JDI {
         _allowances: LegacyMap::<(ContractAddress, ContractAddress), u256>,
         // Special address
         _minter: ContractAddress,
-        _admin: ContractAddress,
         // Supply variables
         _mining_epoch: u256,
         _start_epoch_time: u256,
@@ -70,6 +73,9 @@ mod ERC20JDI {
     #[event]
     fn UpdateMiningParameters(time: u64, rate: u256, supply: u256) {}
 
+    #[event]
+    fn SetMinter(minter: ContractAddress) {}
+
     #[constructor]
     fn constructor(
         name_: felt252,
@@ -84,7 +90,7 @@ mod ERC20JDI {
 
         _total_supply::write(initial_supply);
         _balances::write(contract_address, initial_supply);
-        _admin::write(contract_address);
+        Ownable::initializer();
         Transfer(contract_address_const::<0>(), contract_address, initial_supply);
 
         _start_epoch_time::write((get_block_timestamp().into() + INFLATION_DELAY - RATE_REDUCTION_TIME).into());
@@ -182,10 +188,6 @@ mod ERC20JDI {
 
     }
 
-    fn owner() {
-
-    }
-
     fn mining_epoch() {
 
     }
@@ -198,56 +200,118 @@ mod ERC20JDI {
 
     }
 
-    fn available_supply() {
-
+    // @notice Current number of tokens in existence (claimed or unclaimed)
+    #[view]
+    fn available_supply() -> u256 {
+        let timestamp: felt252 = get_block_timestamp().into();
+        return _available_supply(timestamp);
     }
 
-    fn mintable_in_timeframe() {
+    // // @notice How much supply is mintable from start timestamp till end timestamp, not 100% accurate
+    // // @param start Start of the time interval (timestamp)
+    // // @param end End of the time interval (timestamp)
+    // // @return Tokens mintable from `start` till `end`
+    // #[view]
+    // fn mintable_in_timeframe(start: u256, end: u256) -> u256 {
+    //     assert(start <= end, 'start > end');
+    //     let mut to_mint: u256 = as_u256(0_u128, 0_u128);
+    //     let mut current_epoch_time = _start_epoch_time::read();
+    //     let mut current_rate = _rate::read();
 
-    }
+    //     // Special case if end is in future (not yet minted) epoch
+    //     if end > current_epoch_time + RATE_REDUCTION_TIME.into() {
+    //         current_epoch_time += RATE_REDUCTION_TIME.into();
+    //         current_rate = current_rate * RATE_DENOMINATOR.into() / RATE_REDUCTION_COEFFICIENT.into();
+    //     }
+    //     assert(end <= current_epoch_time + RATE_REDUCTION_TIME.into(), 'too far in future');
+
+    //     loop {
+    //         if end >= current_epoch_time {
+
+    //         }
+    //     }
+    // }
 
     //
     // Externals
     //
 
+    #[external]
     fn increaseAllowance() {
 
     }
 
+    #[external]
     fn decreaseAllowance() {
 
     }
 
+    #[external]
     fn mint() {
 
     }
 
+    #[external]
     fn burn() {
 
     }
 
-    fn set_minter() {
+    // @notice Set the minter address
+    // @dev Only callable once, when minter has not yet been set
+    // @param minter_address Address of the minter
 
+    #[external]
+    fn set_minter(minter_address: ContractAddress) {
+        Ownable::assert_only_owner();
+        assert(_minter::read().is_zero(), 'already set');
+        _minter::write(minter_address);
+        SetMinter(minter_address);
     }
 
-    fn transfer_ownership() {
-
+    #[external]
+    fn transfer_ownership(new_owner: ContractAddress) {
+        Ownable::transfer_ownership(new_owner);
     }
 
+    #[external]
     fn set_name_symbol() {
 
     }
-
+    // @notice Update mining rate and supply at the start of the epoch
+    // @dev Callable by any address, but only once per epoch, Total supply becomes slightly larger if this function is called late
+    #[external]
     fn update_mining_parameters() {
-
+        let timestamp: felt252 = get_block_timestamp().into();
+        assert(timestamp.into() >= _start_epoch_time::read() + RATE_REDUCTION_TIME.into(), 'too soon');
+        _update_mining_parameters();
     }
 
-    fn start_epoch_time_write() {
-
+    // @notice Get timestamp of the current mining epoch start, while simultaneously updating mining parameters
+    // @return Timestamp of the epoch
+    #[external]
+    fn start_epoch_time_write() -> u256 {
+        let start_epoch_time_: u256 = _start_epoch_time::read();
+        let timestamp: felt252 = get_block_timestamp().into();
+        if timestamp.into() >= start_epoch_time_ + RATE_REDUCTION_TIME.into() {
+            _update_mining_parameters();
+            return _start_epoch_time::read();
+        } else {
+            return start_epoch_time_;
+        }
     }
 
-    fn future_epoch_time_write() {
-
+    // @notice Get timestamp of the next mining epoch start, while simultaneously updating mining parameters
+    // @return Timestamp of the next epoch
+    #[external]
+    fn future_epoch_time_write() -> u256 {
+        let start_epoch_time_: u256 = _start_epoch_time::read();
+        let timestamp: felt252 = get_block_timestamp().into();
+        if timestamp.into() >= start_epoch_time_ + RATE_REDUCTION_TIME.into() {
+            _update_mining_parameters();
+            return _start_epoch_time::read() + RATE_REDUCTION_TIME.into();
+        } else {
+            return start_epoch_time_ + RATE_REDUCTION_TIME.into();
+        }
     }
 
     //
@@ -273,11 +337,14 @@ mod ERC20JDI {
 
     }
 
-    fn _only_owner() {
 
+    #[view]
+    fn owner() -> ContractAddress {
+        Ownable::owner()
     }
 
-    fn _available_supply() {
+    fn _available_supply(timestamp: felt252) -> u256 {
+        return _start_epoch_supply::read() + _rate::read() * (timestamp.into() - _start_epoch_time::read());
 
     }
 
@@ -303,10 +370,5 @@ mod ERC20JDI {
 
         UpdateMiningParameters(get_block_timestamp(), _rate, _start_epoch_supply);
     }
-
-    fn _build_mintable_in_timeframe() {
-
-    }
-
 
 }
