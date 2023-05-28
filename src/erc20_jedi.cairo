@@ -44,7 +44,7 @@ mod ERC20JDI {
     }
 
     // General constants
-    const YEAR: u256 = 31536000;  // 86400 * 365
+    const YEAR: u256 = 31536000; // 86400 * 365
 
 
     // Allocation:
@@ -77,12 +77,9 @@ mod ERC20JDI {
     fn SetMinter(minter: ContractAddress) {}
 
     #[constructor]
-    fn constructor(
-        name_: felt252,
-        symbol_: felt252,
-        decimals_: u8,
-    ) {
-        let initial_supply: u256 = INITIAL_SUPPLY.into() * as_u256(fast_power(10_u128, decimals_.into()), 0_u128);
+    fn constructor(name_: felt252, symbol_: felt252, decimals_: u8, ) {
+        let initial_supply: u256 = INITIAL_SUPPLY.into()
+            * as_u256(fast_power(10_u128, decimals_.into()), 0_u128);
         let contract_address = get_contract_address();
         _name::write(name_);
         _symbol::write(symbol_);
@@ -93,7 +90,9 @@ mod ERC20JDI {
         Ownable::initializer();
         Transfer(contract_address_const::<0>(), contract_address, initial_supply);
 
-        _start_epoch_time::write((get_block_timestamp().into() + INFLATION_DELAY - RATE_REDUCTION_TIME).into());
+        _start_epoch_time::write(
+            (get_block_timestamp().into() + INFLATION_DELAY - RATE_REDUCTION_TIME).into()
+        );
         _mining_epoch::write(as_u256(0_u128, 0_u128)); // different from curve
         _rate::write(as_u256(0_u128, 0_u128));
         _start_epoch_supply::write(initial_supply);
@@ -129,75 +128,29 @@ mod ERC20JDI {
         _allowances::read((owner, spender))
     }
 
-    #[external]
-    fn transfer(recipient: ContractAddress, amount: u256) {
-        let sender = get_caller_address();
-        transfer_helper(sender, recipient, amount);
+    #[view]
+    fn minter() -> ContractAddress {
+        _minter::read()
     }
 
-    #[external]
-    fn transfer_from(sender: ContractAddress, recipient: ContractAddress, amount: u256) {
-        let caller = get_caller_address();
-        spend_allowance(sender, caller, amount);
-        transfer_helper(sender, recipient, amount);
+    #[view]
+    fn mining_epoch() -> u256 {
+        _mining_epoch::read()
     }
 
-    #[external]
-    fn approve(spender: ContractAddress, amount: u256) {
-        let caller = get_caller_address();
-        approve_helper(caller, spender, amount);
+    #[view]
+    fn start_epoch_time() -> u256 {
+        _start_epoch_time::read()
     }
 
-    #[external]
-    fn increase_allowance(spender: ContractAddress, added_value: u256) {
-        let caller = get_caller_address();
-        approve_helper(caller, spender, _allowances::read((caller, spender)) + added_value);
+    #[view]
+    fn rate() -> u256 {
+        _rate::read()
     }
 
-    #[external]
-    fn decrease_allowance(spender: ContractAddress, subtracted_value: u256) {
-        let caller = get_caller_address();
-        approve_helper(caller, spender, _allowances::read((caller, spender)) - subtracted_value);
-    }
-
-    fn transfer_helper(sender: ContractAddress, recipient: ContractAddress, amount: u256) {
-        assert(!sender.is_zero(), 'ERC20: transfer from 0');
-        assert(!recipient.is_zero(), 'ERC20: transfer to 0');
-        _balances::write(sender, _balances::read(sender) - amount);
-        _balances::write(recipient, _balances::read(recipient) + amount);
-        Transfer(sender, recipient, amount);
-    }
-
-    fn spend_allowance(owner: ContractAddress, spender: ContractAddress, amount: u256) {
-        let current_allowance = _allowances::read((owner, spender));
-        let ONES_MASK = 0xffffffffffffffffffffffffffffffff_u128;
-        let is_unlimited_allowance = current_allowance.low == ONES_MASK
-            & current_allowance.high == ONES_MASK;
-        if !is_unlimited_allowance {
-            approve_helper(owner, spender, current_allowance - amount);
-        }
-    }
-
-    fn approve_helper(owner: ContractAddress, spender: ContractAddress, amount: u256) {
-        assert(!spender.is_zero(), 'ERC20: approve from 0');
-        _allowances::write((owner, spender), amount);
-        Approval(owner, spender, amount);
-    }
-
-    fn minter() {
-
-    }
-
-    fn mining_epoch() {
-
-    }
-
-    fn start_epoch_time() {
-
-    }
-
-    fn rate() {
-
+    #[view]
+    fn owner() -> ContractAddress {
+        Ownable::owner()
     }
 
     // @notice Current number of tokens in existence (claimed or unclaimed)
@@ -237,29 +190,64 @@ mod ERC20JDI {
     //
 
     #[external]
-    fn increaseAllowance() {
-
+    fn transfer(recipient: ContractAddress, amount: u256) {
+        let sender = get_caller_address();
+        transfer_helper(sender, recipient, amount);
     }
 
     #[external]
-    fn decreaseAllowance() {
-
+    fn transfer_from(sender: ContractAddress, recipient: ContractAddress, amount: u256) {
+        let caller = get_caller_address();
+        spend_allowance(sender, caller, amount);
+        transfer_helper(sender, recipient, amount);
     }
 
     #[external]
-    fn mint() {
-
+    fn approve(spender: ContractAddress, amount: u256) {
+        let caller = get_caller_address();
+        approve_helper(caller, spender, amount);
     }
 
     #[external]
-    fn burn() {
+    fn increase_allowance(spender: ContractAddress, added_value: u256) {
+        let caller = get_caller_address();
+        approve_helper(caller, spender, _allowances::read((caller, spender)) + added_value);
+    }
 
+    #[external]
+    fn decrease_allowance(spender: ContractAddress, subtracted_value: u256) {
+        let caller = get_caller_address();
+        approve_helper(caller, spender, _allowances::read((caller, spender)) - subtracted_value);
+    }
+
+    #[external]
+    fn mint(recipient: ContractAddress, amount: u256) -> bool {
+        let minter = get_caller_address();
+        assert(minter == _minter::read(), 'not minter');
+        assert(!recipient.is_zero(), 'ERC20: mint to 0');
+        let timestamp: felt252 = get_block_timestamp().into();
+        if timestamp.into() > _start_epoch_time::read()
+            + RATE_REDUCTION_TIME.into() {
+                update_mining_parameters();
+            }
+        _total_supply::write(_total_supply::read() + amount);
+        assert(_total_supply::read() <= available_supply(), 'mint more than available supply');
+        _balances::write(recipient, _balances::read(recipient) + amount);
+        Transfer(Zeroable::zero(), recipient, amount);
+        true
+    }
+
+    #[external]
+    fn burn(account: ContractAddress, amount: u256) {
+        assert(!account.is_zero(), 'ERC20: burn from 0');
+        _total_supply::write(_total_supply::read() - amount);
+        _balances::write(account, _balances::read(account) - amount);
+        Transfer(account, Zeroable::zero(), amount);
     }
 
     // @notice Set the minter address
     // @dev Only callable once, when minter has not yet been set
     // @param minter_address Address of the minter
-
     #[external]
     fn set_minter(minter_address: ContractAddress) {
         Ownable::assert_only_owner();
@@ -274,15 +262,19 @@ mod ERC20JDI {
     }
 
     #[external]
-    fn set_name_symbol() {
-
+    fn set_name_symbol(name: felt252, symbol: felt252) {
+        Ownable::assert_only_owner();
+        _name::write(name);
+        _symbol::write(symbol);
     }
     // @notice Update mining rate and supply at the start of the epoch
     // @dev Callable by any address, but only once per epoch, Total supply becomes slightly larger if this function is called late
     #[external]
     fn update_mining_parameters() {
         let timestamp: felt252 = get_block_timestamp().into();
-        assert(timestamp.into() >= _start_epoch_time::read() + RATE_REDUCTION_TIME.into(), 'too soon');
+        assert(
+            timestamp.into() >= _start_epoch_time::read() + RATE_REDUCTION_TIME.into(), 'too soon'
+        );
         _update_mining_parameters();
     }
 
@@ -292,12 +284,13 @@ mod ERC20JDI {
     fn start_epoch_time_write() -> u256 {
         let start_epoch_time_: u256 = _start_epoch_time::read();
         let timestamp: felt252 = get_block_timestamp().into();
-        if timestamp.into() >= start_epoch_time_ + RATE_REDUCTION_TIME.into() {
-            _update_mining_parameters();
-            return _start_epoch_time::read();
-        } else {
-            return start_epoch_time_;
-        }
+        if timestamp.into() >= start_epoch_time_
+            + RATE_REDUCTION_TIME.into() {
+                _update_mining_parameters();
+                return _start_epoch_time::read();
+            } else {
+                return start_epoch_time_;
+            }
     }
 
     // @notice Get timestamp of the next mining epoch start, while simultaneously updating mining parameters
@@ -306,47 +299,18 @@ mod ERC20JDI {
     fn future_epoch_time_write() -> u256 {
         let start_epoch_time_: u256 = _start_epoch_time::read();
         let timestamp: felt252 = get_block_timestamp().into();
-        if timestamp.into() >= start_epoch_time_ + RATE_REDUCTION_TIME.into() {
-            _update_mining_parameters();
-            return _start_epoch_time::read() + RATE_REDUCTION_TIME.into();
-        } else {
-            return start_epoch_time_ + RATE_REDUCTION_TIME.into();
-        }
+        if timestamp.into() >= start_epoch_time_
+            + RATE_REDUCTION_TIME.into() {
+                _update_mining_parameters();
+                return _start_epoch_time::read() + RATE_REDUCTION_TIME.into();
+            } else {
+                return start_epoch_time_ + RATE_REDUCTION_TIME.into();
+            }
     }
 
     //
     // Internals
     //
-    fn _mint() {
-
-    }
-
-    fn _mint_initial() {
-
-    }
-
-    fn _transfer() {
-
-    }
-
-    fn _approve() {
-
-    }
-
-    fn _burn() {
-
-    }
-
-
-    #[view]
-    fn owner() -> ContractAddress {
-        Ownable::owner()
-    }
-
-    fn _available_supply(timestamp: felt252) -> u256 {
-        return _start_epoch_supply::read() + _rate::read() * (timestamp.into() - _start_epoch_time::read());
-
-    }
 
     // @dev Update mining rate and supply at the start of the epoch Any modifying mining call must also call this
     fn _update_mining_parameters() {
@@ -358,17 +322,46 @@ mod ERC20JDI {
         _start_epoch_time::write(_start_epoch_time + RATE_REDUCTION_TIME.into());
         _mining_epoch::write(_mining_epoch + as_u256(1_u128, 0_u128));
 
-        if _rate == as_u256(0_u128, 0_u128) {
+        if _rate == as_u256(
+            0_u128, 0_u128
+        ) {
             _rate = INITIAL_RATE.into();
         } else {
             _start_epoch_supply += _rate * RATE_REDUCTION_TIME.into();
             _start_epoch_supply::write(_start_epoch_supply);
             _rate = _rate * RATE_DENOMINATOR.into() / RATE_REDUCTION_COEFFICIENT.into();
-
         }
         _rate::write(_rate);
 
         UpdateMiningParameters(get_block_timestamp(), _rate, _start_epoch_supply);
     }
 
+    fn transfer_helper(sender: ContractAddress, recipient: ContractAddress, amount: u256) {
+        assert(!sender.is_zero(), 'ERC20: transfer from 0');
+        assert(!recipient.is_zero(), 'ERC20: transfer to 0');
+        _balances::write(sender, _balances::read(sender) - amount);
+        _balances::write(recipient, _balances::read(recipient) + amount);
+        Transfer(sender, recipient, amount);
+    }
+
+    fn spend_allowance(owner: ContractAddress, spender: ContractAddress, amount: u256) {
+        let current_allowance = _allowances::read((owner, spender));
+        let ONES_MASK = 0xffffffffffffffffffffffffffffffff_u128;
+        let is_unlimited_allowance =
+            current_allowance.low == ONES_MASK & current_allowance.high == ONES_MASK;
+        if !is_unlimited_allowance {
+            approve_helper(owner, spender, current_allowance - amount);
+        }
+    }
+
+    fn approve_helper(owner: ContractAddress, spender: ContractAddress, amount: u256) {
+        assert(!spender.is_zero(), 'ERC20: approve from 0');
+        _allowances::write((owner, spender), amount);
+        Approval(owner, spender, amount);
+    }
+
+    fn _available_supply(timestamp: felt252) -> u256 {
+        return _start_epoch_supply::read()
+            + _rate::read() * (timestamp.into() - _start_epoch_time::read());
+    }
 }
