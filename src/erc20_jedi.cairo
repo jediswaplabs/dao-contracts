@@ -160,30 +160,64 @@ mod ERC20JDI {
         return _available_supply(timestamp);
     }
 
-    // // @notice How much supply is mintable from start timestamp till end timestamp, not 100% accurate
-    // // @param start Start of the time interval (timestamp)
-    // // @param end End of the time interval (timestamp)
-    // // @return Tokens mintable from `start` till `end`
-    // #[view]
-    // fn mintable_in_timeframe(start: u256, end: u256) -> u256 {
-    //     assert(start <= end, 'start > end');
-    //     let mut to_mint: u256 = as_u256(0_u128, 0_u128);
-    //     let mut current_epoch_time = _start_epoch_time::read();
-    //     let mut current_rate = _rate::read();
+    // @notice How much supply is mintable from start timestamp till end timestamp, not 100% accurate
+    // @param start Start of the time interval (timestamp)
+    // @param end End of the time interval (timestamp)
+    // @return Tokens mintable from `start` till `end`
+    #[view]
+    fn mintable_in_timeframe(start: u256, end: u256) -> u256 {
+        assert(start <= end, 'start > end');
+        let mut to_mint: u256 = as_u256(0_u128, 0_u128);
+        let mut adjust_start: u256 = start;
 
-    //     // Special case if end is in future (not yet minted) epoch
-    //     if end > current_epoch_time + RATE_REDUCTION_TIME.into() {
-    //         current_epoch_time += RATE_REDUCTION_TIME.into();
-    //         current_rate = current_rate * RATE_DENOMINATOR.into() / RATE_REDUCTION_COEFFICIENT.into();
-    //     }
-    //     assert(end <= current_epoch_time + RATE_REDUCTION_TIME.into(), 'too far in future');
+        let rate_array: Array<u256> = fill_rate_in_array(end);
 
-    //     loop {
-    //         if end >= current_epoch_time {
+        let mut cur_epoch_time = _start_epoch_time::read() - _mining_epoch::read() * RATE_REDUCTION_TIME.into(); // set to the first epoch start_epoch_time
 
-    //         }
-    //     }
-    // }
+        if cur_epoch_time > start {
+            adjust_start = cur_epoch_time;
+        }
+
+        loop {
+            if cur_epoch_time > end {
+                break();
+            }
+            if cur_epoch_time + RATE_REDUCTION_TIME.into() > adjust_start & cur_epoch_time <= adjust_start {
+                // start falls into current epoch
+                if cur_epoch_time + RATE_REDUCTION_TIME.into() > end {
+                    // end also falls into current epoch
+                    to_mint += (end - adjust_start) * *rate_array.at(_epoch_at_timestamp(adjust_start));
+                    break();
+                } else {
+                    // end falls into next epochs
+                    to_mint += (cur_epoch_time + RATE_REDUCTION_TIME.into() - adjust_start) * *rate_array.at(_epoch_at_timestamp(adjust_start));
+                }
+
+            } else if cur_epoch_time + RATE_REDUCTION_TIME.into() < end {
+                to_mint += RATE_REDUCTION_TIME.into() * *rate_array.at(_epoch_at_timestamp(cur_epoch_time));
+            } else {
+                to_mint += (end - cur_epoch_time) * *rate_array.at(_epoch_at_timestamp(cur_epoch_time));
+                break();
+            }
+
+            cur_epoch_time += RATE_REDUCTION_TIME.into();
+        };
+        return to_mint;
+
+
+    }
+
+    fn fill_rate_in_array(timestamp: u256) -> Array<u256> {
+        return ArrayTrait::new();
+    }
+
+    fn _epoch_at_timestamp(timestamp: u256) -> u32 {
+        let mut initial_start_epoch_time = _start_epoch_time::read() - _mining_epoch::read() * RATE_REDUCTION_TIME.into();
+        let epoch = (timestamp - initial_start_epoch_time) / RATE_REDUCTION_TIME.into();
+        let epoch_option = epoch.low.try_into();
+        return epoch_option.unwrap();
+    }
+
 
     //
     // Externals
