@@ -160,7 +160,7 @@ mod ERC20JDI {
         return _available_supply(timestamp);
     }
 
-    // @notice How much supply is mintable from start timestamp till end timestamp, not 100% accurate
+    // @notice How much supply is mintable from start timestamp till end timestamp
     // @param start Start of the time interval (timestamp)
     // @param end End of the time interval (timestamp)
     // @return Tokens mintable from `start` till `end`
@@ -208,7 +208,19 @@ mod ERC20JDI {
     }
 
     fn fill_rate_in_array(timestamp: u256) -> Array<u256> {
-        return ArrayTrait::new();
+        let mut rate_array = ArrayTrait::new();
+        let mut cur_epoch_time = _start_epoch_time::read() - _mining_epoch::read() * RATE_REDUCTION_TIME.into(); // set to the first epoch start_epoch_time
+        let mut cur_rate = INITIAL_RATE.into();
+        rate_array.append(cur_rate);
+        loop {
+            if cur_epoch_time > timestamp {
+                break();
+            }
+            cur_rate = cur_rate * RATE_DENOMINATOR.into() / RATE_REDUCTION_COEFFICIENT.into();
+            rate_array.append(cur_rate);
+            cur_epoch_time += RATE_REDUCTION_TIME.into();
+        };
+        return rate_array;
     }
 
     fn _epoch_at_timestamp(timestamp: u256) -> u32 {
