@@ -12,7 +12,6 @@ use core::traits::Into;
 mod ERC20JDI {
     use zeroable::Zeroable;
     use starknet::get_caller_address;
-    use starknet::get_contract_address;
     use starknet::get_block_timestamp;
     use starknet::contract_address_const;
     use starknet::ContractAddress;
@@ -80,7 +79,7 @@ mod ERC20JDI {
     fn constructor(name_: felt252, symbol_: felt252, decimals_: u8) {
         let initial_supply: u256 = INITIAL_SUPPLY.into()
             * as_u256(fast_power(10_u128, decimals_.into()), 0_u128);
-        let contract_address = get_contract_address();
+        let contract_address = get_caller_address();
         _name::write(name_);
         _symbol::write(symbol_);
         _decimals::write(decimals_);
