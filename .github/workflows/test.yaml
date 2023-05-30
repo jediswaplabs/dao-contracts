@@ -49,4 +49,4 @@ jobs:
           
       - name: Test the code
         run: | 
-          scarb run test
+          cairo-test --starknet .

@@ -398,7 +398,8 @@ mod ERC20JDI {
     }
 
     fn approve_helper(owner: ContractAddress, spender: ContractAddress, amount: u256) {
-        assert(!spender.is_zero(), 'ERC20: approve from 0');
+        assert(!owner.is_zero(), 'ERC20: approve from 0');
+        assert(!spender.is_zero(), 'ERC20: approve to 0');
         _allowances::write((owner, spender), amount);
         Approval(owner, spender, amount);
     }
