@@ -1,2 +1,2 @@
 [crate_roots]
-jedi_dao = "src"
+jediswap_dao = "src"

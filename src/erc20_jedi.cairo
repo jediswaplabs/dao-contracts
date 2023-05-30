@@ -77,7 +77,7 @@ mod ERC20JDI {
     fn SetMinter(minter: ContractAddress) {}
 
     #[constructor]
-    fn constructor(name_: felt252, symbol_: felt252, decimals_: u8, ) {
+    fn constructor(name_: felt252, symbol_: felt252, decimals_: u8) {
         let initial_supply: u256 = INITIAL_SUPPLY.into()
             * as_u256(fast_power(10_u128, decimals_.into()), 0_u128);
         let contract_address = get_contract_address();
@@ -236,34 +236,39 @@ mod ERC20JDI {
     //
 
     #[external]
-    fn transfer(recipient: ContractAddress, amount: u256) {
+    fn transfer(recipient: ContractAddress, amount: u256) -> bool {
         let sender = get_caller_address();
         transfer_helper(sender, recipient, amount);
+        true
     }
 
     #[external]
-    fn transfer_from(sender: ContractAddress, recipient: ContractAddress, amount: u256) {
+    fn transfer_from(sender: ContractAddress, recipient: ContractAddress, amount: u256) -> bool {
         let caller = get_caller_address();
         spend_allowance(sender, caller, amount);
         transfer_helper(sender, recipient, amount);
+        true
     }
 
     #[external]
-    fn approve(spender: ContractAddress, amount: u256) {
+    fn approve(spender: ContractAddress, amount: u256) -> bool {
         let caller = get_caller_address();
         approve_helper(caller, spender, amount);
+        true
     }
 
     #[external]
-    fn increase_allowance(spender: ContractAddress, added_value: u256) {
+    fn increase_allowance(spender: ContractAddress, added_value: u256) -> bool {
         let caller = get_caller_address();
         approve_helper(caller, spender, _allowances::read((caller, spender)) + added_value);
+        true
     }
 
     #[external]
-    fn decrease_allowance(spender: ContractAddress, subtracted_value: u256) {
+    fn decrease_allowance(spender: ContractAddress, subtracted_value: u256) -> bool {
         let caller = get_caller_address();
         approve_helper(caller, spender, _allowances::read((caller, spender)) - subtracted_value);
+        true
     }
 
     #[external]
@@ -271,15 +276,7 @@ mod ERC20JDI {
         let minter = get_caller_address();
         assert(minter == _minter::read(), 'not minter');
         assert(!recipient.is_zero(), 'ERC20: mint to 0');
-        let timestamp: felt252 = get_block_timestamp().into();
-        if timestamp.into() > _start_epoch_time::read()
-            + RATE_REDUCTION_TIME.into() {
-                update_mining_parameters();
-            }
-        _total_supply::write(_total_supply::read() + amount);
-        assert(_total_supply::read() <= available_supply(), 'mint more than available supply');
-        _balances::write(recipient, _balances::read(recipient) + amount);
-        Transfer(Zeroable::zero(), recipient, amount);
+        _mint(recipient, amount);
         true
     }
 
@@ -409,5 +406,17 @@ mod ERC20JDI {
     fn _available_supply(timestamp: felt252) -> u256 {
         return _start_epoch_supply::read()
             + _rate::read() * (timestamp.into() - _start_epoch_time::read());
+    }
+
+    fn _mint(recipient: ContractAddress, amount: u256) {
+        let timestamp: felt252 = get_block_timestamp().into();
+        if timestamp.into() > _start_epoch_time::read()
+            + RATE_REDUCTION_TIME.into() {
+                update_mining_parameters();
+            }
+        _total_supply::write(_total_supply::read() + amount);
+        assert(_total_supply::read() <= available_supply(), 'mint more than available supply');
+        _balances::write(recipient, _balances::read(recipient) + amount);
+        Transfer(Zeroable::zero(), recipient, amount);
     }
 }
