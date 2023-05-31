@@ -9,6 +9,7 @@ use integer::BoundedInt;
 use traits::Into;
 use traits::TryInto;
 use option::OptionTrait;
+use debug::PrintTrait;
 
 //
 // Constants
@@ -443,4 +444,27 @@ fn test__burn_from_zero() {
     let amount: u256 = u256_from_felt252(100);
 
     ERC20JDI::burn(zero_address, amount);
+}
+
+#[test]
+#[available_gas(2000000)]
+fn test_mintable_in_timeframe() {
+    let initial_timestamp: u64 = 1685496771.try_into().unwrap();
+    set_block_timestamp(initial_timestamp);
+    setup();
+    let initial_timestamp_u256 = u256_from_felt252(initial_timestamp.into());
+    let mintable_tokens = ERC20JDI::mintable_in_timeframe(initial_timestamp_u256 - u256_from_felt252(1000), initial_timestamp_u256);
+    mintable_tokens.print();
+    assert(mintable_tokens == u256_from_felt252(0), 'Should eq 0');
+}
+
+#[test]
+#[available_gas(2000000)]
+#[should_panic(expected: ('too soon', ))]
+fn test_update_mining_parameters_too_soon() {
+    let initial_timestamp: u64 = 1685496771.try_into().unwrap();
+    set_block_timestamp(initial_timestamp);
+    setup();
+    ERC20JDI::update_mining_parameters(); 
+
 }

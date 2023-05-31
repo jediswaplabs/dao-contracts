@@ -8,7 +8,8 @@ homepage = "https://github.com/auditless/cairo-template"
 test = "protostar test"
 # Add your own custom commands and run them with `scarb run <command>`
 
-# [dependencies]
+[dependencies]
+starknet = ">=1.1.0"
 # quaireaux_math = { git = "https://github.com/keep-starknet-strange/quaireaux.git" }
 
 [[target.starknet-contract]]

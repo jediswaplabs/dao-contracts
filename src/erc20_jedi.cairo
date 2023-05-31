@@ -21,9 +21,9 @@ mod ERC20JDI {
     use option::OptionTrait;
 
 
-    use jediswap_dao::helper::as_u256;
-    use jediswap_dao::fast_power::fast_power;
-    use jediswap_dao::ownable::Ownable;
+    use jediswap_dao::utils::helper::as_u256;
+    use jediswap_dao::utils::fast_power::fast_power;
+    use jediswap_dao::utils::ownable::Ownable;
 
 
     struct Storage {
