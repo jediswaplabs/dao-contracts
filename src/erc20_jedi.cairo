@@ -19,9 +19,8 @@ mod ERC20JDI {
     use traits::TryInto;
     use array::ArrayTrait;
     use option::OptionTrait;
+    use integer::u256_from_felt252;
 
-
-    use jediswap_dao::utils::helper::as_u256;
     use jediswap_dao::utils::fast_power::fast_power;
     use jediswap_dao::utils::ownable::Ownable;
     use jediswap_dao::utils::erc20::ERC20;
@@ -67,7 +66,7 @@ mod ERC20JDI {
     #[constructor]
     fn constructor(name_: felt252, symbol_: felt252) {
         let initial_supply: u256 = INITIAL_SUPPLY.into()
-            * as_u256(fast_power(10_u128, ERC20::decimals().into()), 0_u128);
+            * u256_from_felt252(fast_power(10_u128, ERC20::decimals().into()).into());
         let contract_address = get_caller_address();
         ERC20::initializer(name_, symbol_);
         ERC20::_mint(contract_address, initial_supply);
@@ -76,8 +75,8 @@ mod ERC20JDI {
         _start_epoch_time::write(
             (get_block_timestamp().into() + INFLATION_DELAY - RATE_REDUCTION_TIME).into()
         );
-        _mining_epoch::write(as_u256(0_u128, 0_u128)); // different from curve
-        _rate::write(as_u256(0_u128, 0_u128));
+        _mining_epoch::write(u256_from_felt252(0)); // different from curve
+        _rate::write(u256_from_felt252(0));
         _start_epoch_supply::write(initial_supply);
     }
 
@@ -150,7 +149,7 @@ mod ERC20JDI {
     #[view]
     fn mintable_in_timeframe(start: u256, end: u256) -> u256 {
         assert(start <= end, 'start > end');
-        let mut to_mint: u256 = as_u256(0_u128, 0_u128);
+        let mut to_mint: u256 = u256_from_felt252(0);
         let mut adjust_start: u256 = start;
 
         let rate_array: Array<u256> = fill_rate_in_array(end);
@@ -189,30 +188,6 @@ mod ERC20JDI {
 
 
     }
-
-    fn fill_rate_in_array(timestamp: u256) -> Array<u256> {
-        let mut rate_array = ArrayTrait::new();
-        let mut cur_epoch_time = _start_epoch_time::read() - _mining_epoch::read() * RATE_REDUCTION_TIME.into(); // set to the first epoch start_epoch_time
-        let mut cur_rate = INITIAL_RATE.into();
-        rate_array.append(cur_rate);
-        loop {
-            if cur_epoch_time > timestamp {
-                break();
-            }
-            cur_rate = cur_rate * RATE_DENOMINATOR.into() / RATE_REDUCTION_COEFFICIENT.into();
-            rate_array.append(cur_rate);
-            cur_epoch_time += RATE_REDUCTION_TIME.into();
-        };
-        return rate_array;
-    }
-
-    fn _epoch_at_timestamp(timestamp: u256) -> u32 {
-        let mut initial_start_epoch_time = _start_epoch_time::read() - _mining_epoch::read() * RATE_REDUCTION_TIME.into();
-        let epoch = (timestamp - initial_start_epoch_time) / RATE_REDUCTION_TIME.into();
-        let epoch_option = epoch.low.try_into();
-        return epoch_option.unwrap();
-    }
-
 
     //
     // Externals
@@ -326,11 +301,9 @@ mod ERC20JDI {
         let _mining_epoch = _mining_epoch::read();
 
         _start_epoch_time::write(_start_epoch_time + RATE_REDUCTION_TIME.into());
-        _mining_epoch::write(_mining_epoch + as_u256(1_u128, 0_u128));
+        _mining_epoch::write(_mining_epoch + u256_from_felt252(1));
 
-        if _rate == as_u256(
-            0_u128, 0_u128
-        ) {
+        if _rate == u256_from_felt252(0) {
             _rate = INITIAL_RATE.into();
         } else {
             _start_epoch_supply += _rate * RATE_REDUCTION_TIME.into();
@@ -354,5 +327,28 @@ mod ERC20JDI {
                 update_mining_parameters();
             }
         ERC20::_mint(recipient, amount);
+    }
+
+    fn fill_rate_in_array(timestamp: u256) -> Array<u256> {
+        let mut rate_array = ArrayTrait::new();
+        let mut cur_epoch_time = _start_epoch_time::read() - _mining_epoch::read() * RATE_REDUCTION_TIME.into(); // set to the first epoch start_epoch_time
+        let mut cur_rate = INITIAL_RATE.into();
+        rate_array.append(cur_rate);
+        loop {
+            if cur_epoch_time > timestamp {
+                break();
+            }
+            cur_rate = cur_rate * RATE_DENOMINATOR.into() / RATE_REDUCTION_COEFFICIENT.into();
+            rate_array.append(cur_rate);
+            cur_epoch_time += RATE_REDUCTION_TIME.into();
+        };
+        return rate_array;
+    }
+
+    fn _epoch_at_timestamp(timestamp: u256) -> u32 {
+        let mut initial_start_epoch_time = _start_epoch_time::read() - _mining_epoch::read() * RATE_REDUCTION_TIME.into();
+        let epoch = (timestamp - initial_start_epoch_time) / RATE_REDUCTION_TIME.into();
+        let epoch_option = epoch.low.try_into();
+        return epoch_option.unwrap();
     }
 }

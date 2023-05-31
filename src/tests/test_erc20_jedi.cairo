@@ -130,3 +130,17 @@ fn test_update_mining_parameters_too_soon() {
     ERC20JDI::update_mining_parameters(); 
 
 }
+
+#[test]
+#[available_gas(2000000)]
+fn test_update_mining_parameters() {
+    let initial_timestamp: u64 = 1685496771.try_into().unwrap();
+    set_block_timestamp(initial_timestamp);
+    setup();
+    let first_epoch_timestamp = initial_timestamp + ERC20JDI::INFLATION_DELAY.try_into().unwrap();
+    set_block_timestamp(first_epoch_timestamp + 1_u64);
+    ERC20JDI::update_mining_parameters(); 
+    
+    assert(ERC20JDI::start_epoch_time() == u256_from_felt252(first_epoch_timestamp.into()), 'Should eq');
+    assert(ERC20JDI::mining_epoch() == u256_from_felt252(1), 'Should eq 1');
+}
