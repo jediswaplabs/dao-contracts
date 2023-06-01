@@ -143,4 +143,6 @@ fn test_update_mining_parameters() {
     
     assert(ERC20JDI::start_epoch_time() == u256_from_felt252(first_epoch_timestamp.into()), 'Should eq');
     assert(ERC20JDI::mining_epoch() == u256_from_felt252(1), 'Should eq 1');
+    assert(ERC20JDI::rate() == u256_from_felt252(ERC20JDI::INITIAL_RATE), 'Should eq INITIAL_RATE');
+    assert(ERC20JDI::available_supply() == u256_from_felt252(ERC20JDI::INITIAL_SUPPLY + ERC20JDI::INITIAL_RATE * 1), 'Should eq available_supply');
 }

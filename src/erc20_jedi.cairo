@@ -50,7 +50,7 @@ mod ERC20JDI {
     // left for inflation: 57%
 
     // Supply parameters
-    const INITIAL_SUPPLY: felt252 = 1303030303;
+    const INITIAL_SUPPLY: felt252 = 1303030303000000000000000000;
     const INITIAL_RATE: felt252 = 8714335500000000000; // 274815283 * 10 ** 18 / YEAR
     const RATE_REDUCTION_TIME: felt252 = 31536000; // YEAR
     const RATE_REDUCTION_COEFFICIENT: felt252 = 1189207115002721024;
@@ -65,8 +65,7 @@ mod ERC20JDI {
 
     #[constructor]
     fn constructor(name_: felt252, symbol_: felt252) {
-        let initial_supply: u256 = INITIAL_SUPPLY.into()
-            * u256_from_felt252(fast_power(10_u128, ERC20::decimals().into()).into());
+        let initial_supply: u256 = INITIAL_SUPPLY.into();
         let contract_address = get_caller_address();
         ERC20::initializer(name_, symbol_);
         ERC20::_mint(contract_address, initial_supply);
