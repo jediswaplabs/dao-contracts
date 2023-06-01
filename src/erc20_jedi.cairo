@@ -50,12 +50,12 @@ mod ERC20JDI {
     // left for inflation: 57%
 
     // Supply parameters
-    const INITIAL_SUPPLY: felt252 = 1303030303000000000000000000;
+    const INITIAL_SUPPLY: felt252 = 1303030303000000000000000000; // 1303030303 * 10 ** 18
     const INITIAL_RATE: felt252 = 8714335500000000000; // 274815283 * 10 ** 18 / YEAR
     const RATE_REDUCTION_TIME: felt252 = 31536000; // YEAR
-    const RATE_REDUCTION_COEFFICIENT: felt252 = 1189207115002721024;
-    const RATE_DENOMINATOR: felt252 = 1000000000000000000;
-    const INFLATION_DELAY: felt252 = 86400;
+    const RATE_REDUCTION_COEFFICIENT: felt252 = 1189207115002721024; // 2 ** (1/4) * 1e18
+    const RATE_DENOMINATOR: felt252 = 1000000000000000000; // 10 ** 18
+    const INFLATION_DELAY: felt252 = 86400; // one day
 
     #[event]
     fn UpdateMiningParameters(time: u64, rate: u256, supply: u256) {}
@@ -330,7 +330,7 @@ mod ERC20JDI {
 
     fn fill_rate_in_array(timestamp: u256) -> Array<u256> {
         let mut rate_array = ArrayTrait::new();
-        let mut cur_epoch_time = _start_epoch_time::read() - _mining_epoch::read() * RATE_REDUCTION_TIME.into(); // set to the first epoch start_epoch_time
+        let mut cur_epoch_time = _start_epoch_time::read() - _mining_epoch::read() * RATE_REDUCTION_TIME.into() + RATE_REDUCTION_TIME.into(); // set to the first epoch start_epoch_time
         let mut cur_rate = INITIAL_RATE.into();
         rate_array.append(cur_rate);
         loop {
