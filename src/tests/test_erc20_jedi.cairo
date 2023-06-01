@@ -125,6 +125,19 @@ fn test_fill_rate_in_array() {
 
 #[test]
 #[available_gas(2000000)]
+fn test__epoch_at_timestamp() {
+    let initial_timestamp: u64 = 1685496771.try_into().unwrap();
+    set_block_timestamp(initial_timestamp);
+    setup();
+    let _tmp: felt252 = initial_timestamp.into();
+    let _tmp2: u256 = u256_from_felt252(_tmp + 10 * ERC20JDI::RATE_REDUCTION_TIME.into());
+    assert(ERC20JDI::_epoch_at_timestamp(_tmp2) == 10_u32, 'Should eq 10');
+    let _tmp3 = _tmp2 + ERC20JDI::INFLATION_DELAY.into();
+    assert(ERC20JDI::_epoch_at_timestamp(_tmp3) == 11_u32, 'Should eq 11');
+}
+
+#[test]
+#[available_gas(2000000)]
 fn test_mintable_in_timeframe() {
     let initial_timestamp: u64 = 1685496771.try_into().unwrap();
     set_block_timestamp(initial_timestamp);
