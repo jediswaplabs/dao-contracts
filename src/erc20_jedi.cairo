@@ -162,22 +162,25 @@ mod ERC20JDI {
             if cur_epoch_time > end {
                 break();
             }
+            // start falls into current epoch
             if cur_epoch_time + RATE_REDUCTION_TIME.into() > adjust_start & cur_epoch_time <= adjust_start {
-                // start falls into current epoch
+                // end also falls into current epoch
                 if cur_epoch_time + RATE_REDUCTION_TIME.into() > end {
-                    // end also falls into current epoch
                     to_mint += (end - adjust_start) * *rate_array.at(_epoch_at_timestamp(adjust_start) - 1);
                     break();
                 } else {
                     // end falls into next epochs
                     to_mint += (cur_epoch_time + RATE_REDUCTION_TIME.into() - adjust_start) * *rate_array.at(_epoch_at_timestamp(adjust_start) - 1);
                 }
-
-            } else if cur_epoch_time + RATE_REDUCTION_TIME.into() < end {
-                to_mint += RATE_REDUCTION_TIME.into() * *rate_array.at(_epoch_at_timestamp(cur_epoch_time) - 1);
-            } else {
-                to_mint += (end - cur_epoch_time) * *rate_array.at(_epoch_at_timestamp(cur_epoch_time) - 1);
-                break();
+            } else if cur_epoch_time > adjust_start {
+                if cur_epoch_time + RATE_REDUCTION_TIME.into() > end {
+                    // end also falls into current epoch
+                    to_mint += (end - cur_epoch_time) * *rate_array.at(_epoch_at_timestamp(cur_epoch_time) - 1);
+                    break();
+                } else {
+                    // end falls into next epochs
+                    to_mint += RATE_REDUCTION_TIME.into() * *rate_array.at(_epoch_at_timestamp(cur_epoch_time) - 1);
+                }
             }
 
             cur_epoch_time += RATE_REDUCTION_TIME.into();

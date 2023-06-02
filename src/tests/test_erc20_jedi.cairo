@@ -155,7 +155,23 @@ fn test_mintable_in_timeframe() {
     setup();
     let initial_timestamp_u256 = u256_from_felt252(initial_timestamp.into());
     let mintable_tokens = ERC20JDI::mintable_in_timeframe(initial_timestamp_u256 - u256_from_felt252(1000), initial_timestamp_u256 + ERC20JDI::INFLATION_DELAY.into() + ERC20JDI::RATE_REDUCTION_TIME.into());
-    assert(mintable_tokens == ERC20JDI::RATE_REDUCTION_TIME.into() * ERC20JDI::INITIAL_RATE.into(), 'Should eq 0');
+    assert(mintable_tokens == ERC20JDI::RATE_REDUCTION_TIME.into() * ERC20JDI::INITIAL_RATE.into(), 'Should eq');
+}
+
+#[test]
+#[available_gas(20000000)]
+fn test_mintable_in_timeframe_from_second_epoch() {
+    let initial_timestamp: u64 = 1685496771.try_into().unwrap();
+    set_block_timestamp(initial_timestamp);
+    setup();
+    let initial_timestamp_u256 = u256_from_felt252(initial_timestamp.into());
+    let second_epoch_start_timestamp = initial_timestamp_u256 + ERC20JDI::INFLATION_DELAY.into() + ERC20JDI::RATE_REDUCTION_TIME.into();
+    let end_timestamp = second_epoch_start_timestamp + ERC20JDI::RATE_REDUCTION_TIME.into() * 2.into() + 1;
+    let mintable_tokens = ERC20JDI::mintable_in_timeframe(second_epoch_start_timestamp, end_timestamp);
+    let array = ERC20JDI::_fill_rate_in_array(end_timestamp);
+    mintable_tokens.print();
+    let _tmp: u256 = (*array[1] + *array[2]) * ERC20JDI::RATE_REDUCTION_TIME.into() + *array[3] * 1.into();
+    assert(mintable_tokens == _tmp, 'Should eq');
 }
 
 #[test]
