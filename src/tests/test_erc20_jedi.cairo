@@ -240,3 +240,28 @@ fn test_update_mining_parameters() {
     assert(ERC20JDI::rate() == u256_from_felt252(ERC20JDI::INITIAL_RATE), 'Should eq INITIAL_RATE');
     assert(ERC20JDI::available_supply() == u256_from_felt252(ERC20JDI::INITIAL_SUPPLY + ERC20JDI::INITIAL_RATE * 1), 'Should eq available_supply');
 }
+
+#[test]
+#[available_gas(2000000)]
+#[should_panic(expected: ('need update_mining_parameters', ))]
+fn test_available_supply_exceed_epoch() {
+    let initial_timestamp: u64 = TIMESTAMP.try_into().unwrap();
+    set_block_timestamp(initial_timestamp);
+    setup();
+    set_block_timestamp(initial_timestamp + ERC20JDI::RATE_REDUCTION_TIME.try_into().unwrap() + 1_u64);
+    ERC20JDI::available_supply();
+}
+
+#[test]
+#[available_gas(2000000)]
+fn test_available_supply() {
+    let initial_timestamp: u64 = TIMESTAMP.try_into().unwrap();
+    set_block_timestamp(initial_timestamp);
+    setup();
+    set_block_timestamp(initial_timestamp + ERC20JDI::RATE_REDUCTION_TIME.try_into().unwrap() / 2 * 3);
+    ERC20JDI::update_mining_parameters();
+    ERC20JDI::update_mining_parameters();
+    let tmp: felt252 = (initial_timestamp + ERC20JDI::RATE_REDUCTION_TIME.try_into().unwrap() / 2).into();
+    let array = ERC20JDI::_fill_rate_in_array(tmp.into());
+    assert(ERC20JDI::available_supply() == ERC20JDI::INITIAL_SUPPLY.into() + ERC20JDI::RATE_REDUCTION_TIME.into() * (*array[0]) + (ERC20JDI::RATE_REDUCTION_TIME.into() / 2 - ERC20JDI::INFLATION_DELAY.into()) * (*array[1]), 'Should eq');
+}

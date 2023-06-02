@@ -138,6 +138,9 @@ mod ERC20JDI {
     #[view]
     fn available_supply() -> u256 {
         let timestamp: felt252 = get_block_timestamp().into();
+        assert(
+            timestamp.into() <= _start_epoch_time::read() + RATE_REDUCTION_TIME.into(), 'need update_mining_parameters'
+        );
         return _available_supply(timestamp);
     }
 
@@ -328,6 +331,7 @@ mod ERC20JDI {
                 update_mining_parameters();
             }
         ERC20::_mint(recipient, amount);
+        assert(available_supply() >= ERC20::_total_supply::read(), 'exceeds allowable mint amount');
     }
 
     // @dev Fill the all rates into array, ignore the 0 epoch as its rate is zero.
