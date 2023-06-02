@@ -111,12 +111,12 @@ fn test__burn_from_zero() {
 
 #[test]
 #[available_gas(2000000)]
-fn test_fill_rate_in_array() {
+fn test__fill_rate_in_array() {
     let initial_timestamp: u64 = 1685496771.try_into().unwrap();
     set_block_timestamp(initial_timestamp);
     setup();
     let initial_timestamp_u256 = u256_from_felt252(initial_timestamp.into());
-    let rate_array: Array<u256> = ERC20JDI::fill_rate_in_array(initial_timestamp_u256 + ERC20JDI::RATE_REDUCTION_TIME.into());
+    let rate_array: Array<u256> = ERC20JDI::_fill_rate_in_array(initial_timestamp_u256 + ERC20JDI::RATE_REDUCTION_TIME.into());
     assert(rate_array.len() == 2_u32, 'Should eq 0');
     assert(*rate_array.at(0_u32) == ERC20JDI::INITIAL_RATE.into(), 'Should eq INITIAL_RATE');
     let _tmp: u256 = ERC20JDI::INITIAL_RATE.into() * ERC20JDI::RATE_DENOMINATOR.into();
@@ -138,14 +138,24 @@ fn test__epoch_at_timestamp() {
 
 #[test]
 #[available_gas(2000000)]
-fn test_mintable_in_timeframe() {
+fn test_mintable_in_timeframe_zero() {
     let initial_timestamp: u64 = 1685496771.try_into().unwrap();
     set_block_timestamp(initial_timestamp);
     setup();
     let initial_timestamp_u256 = u256_from_felt252(initial_timestamp.into());
     let mintable_tokens = ERC20JDI::mintable_in_timeframe(initial_timestamp_u256 - u256_from_felt252(1000), initial_timestamp_u256);
-    mintable_tokens.print();
     assert(mintable_tokens == u256_from_felt252(0), 'Should eq 0');
+}
+
+#[test]
+#[available_gas(2000000)]
+fn test_mintable_in_timeframe() {
+    let initial_timestamp: u64 = 1685496771.try_into().unwrap();
+    set_block_timestamp(initial_timestamp);
+    setup();
+    let initial_timestamp_u256 = u256_from_felt252(initial_timestamp.into());
+    let mintable_tokens = ERC20JDI::mintable_in_timeframe(initial_timestamp_u256 - u256_from_felt252(1000), initial_timestamp_u256 + ERC20JDI::INFLATION_DELAY.into() + ERC20JDI::RATE_REDUCTION_TIME.into());
+    assert(mintable_tokens == ERC20JDI::RATE_REDUCTION_TIME.into() * ERC20JDI::INITIAL_RATE.into(), 'Should eq 0');
 }
 
 #[test]

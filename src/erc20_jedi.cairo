@@ -151,10 +151,9 @@ mod ERC20JDI {
         let mut to_mint: u256 = u256_from_felt252(0);
         let mut adjust_start: u256 = start;
 
-        let rate_array: Array<u256> = fill_rate_in_array(end);
+        let rate_array: Array<u256> = _fill_rate_in_array(end);
 
-        let mut cur_epoch_time = _start_epoch_time::read() - _mining_epoch::read() * RATE_REDUCTION_TIME.into(); // set to the first epoch start_epoch_time
-
+        let mut cur_epoch_time = _start_epoch_time::read() - _mining_epoch::read() * RATE_REDUCTION_TIME.into() + RATE_REDUCTION_TIME.into(); // set to the first epoch start_epoch_time
         if cur_epoch_time > start {
             adjust_start = cur_epoch_time;
         }
@@ -167,17 +166,17 @@ mod ERC20JDI {
                 // start falls into current epoch
                 if cur_epoch_time + RATE_REDUCTION_TIME.into() > end {
                     // end also falls into current epoch
-                    to_mint += (end - adjust_start) * *rate_array.at(_epoch_at_timestamp(adjust_start));
+                    to_mint += (end - adjust_start) * *rate_array.at(_epoch_at_timestamp(adjust_start) - 1);
                     break();
                 } else {
                     // end falls into next epochs
-                    to_mint += (cur_epoch_time + RATE_REDUCTION_TIME.into() - adjust_start) * *rate_array.at(_epoch_at_timestamp(adjust_start));
+                    to_mint += (cur_epoch_time + RATE_REDUCTION_TIME.into() - adjust_start) * *rate_array.at(_epoch_at_timestamp(adjust_start) - 1);
                 }
 
             } else if cur_epoch_time + RATE_REDUCTION_TIME.into() < end {
-                to_mint += RATE_REDUCTION_TIME.into() * *rate_array.at(_epoch_at_timestamp(cur_epoch_time));
+                to_mint += RATE_REDUCTION_TIME.into() * *rate_array.at(_epoch_at_timestamp(cur_epoch_time) - 1);
             } else {
-                to_mint += (end - cur_epoch_time) * *rate_array.at(_epoch_at_timestamp(cur_epoch_time));
+                to_mint += (end - cur_epoch_time) * *rate_array.at(_epoch_at_timestamp(cur_epoch_time) - 1);
                 break();
             }
 
@@ -328,7 +327,8 @@ mod ERC20JDI {
         ERC20::_mint(recipient, amount);
     }
 
-    fn fill_rate_in_array(timestamp: u256) -> Array<u256> {
+    // @dev Fill the all rates into array, ignore the 0 epoch as its rate is zero.
+    fn _fill_rate_in_array(timestamp: u256) -> Array<u256> {
         let mut rate_array = ArrayTrait::new();
         let mut cur_epoch_time = _start_epoch_time::read() - _mining_epoch::read() * RATE_REDUCTION_TIME.into() + RATE_REDUCTION_TIME.into(); // set to the first epoch start_epoch_time
         let mut cur_rate = INITIAL_RATE.into();
@@ -344,6 +344,7 @@ mod ERC20JDI {
         return rate_array;
     }
 
+    // @dev Get the epoch number at a given timestamp. The 0 epoch is the epoch as its rate is 0, the 1 epoch is the epoch as its rate is INITIAL_RATE
     fn _epoch_at_timestamp(timestamp: u256) -> u32 {
         let mut initial_start_epoch_time = _start_epoch_time::read() - _mining_epoch::read() * RATE_REDUCTION_TIME.into();
         let epoch = (timestamp - initial_start_epoch_time) / RATE_REDUCTION_TIME.into();
