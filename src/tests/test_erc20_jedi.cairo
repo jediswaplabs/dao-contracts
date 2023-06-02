@@ -19,6 +19,7 @@ use debug::PrintTrait;
 const NAME: felt252 = 111;
 const SYMBOL: felt252 = 222;
 const DECIMALS: u8 = 18;
+const TIMESTAMP: felt252 = 1685496771;
 
 //
 // Helper functions
@@ -139,7 +140,7 @@ fn test__epoch_at_timestamp() {
 #[test]
 #[available_gas(2000000)]
 fn test_mintable_in_timeframe_zero() {
-    let initial_timestamp: u64 = 1685496771.try_into().unwrap();
+    let initial_timestamp: u64 = TIMESTAMP.try_into().unwrap();
     set_block_timestamp(initial_timestamp);
     setup();
     let initial_timestamp_u256 = u256_from_felt252(initial_timestamp.into());
@@ -150,7 +151,7 @@ fn test_mintable_in_timeframe_zero() {
 #[test]
 #[available_gas(2000000)]
 fn test_mintable_in_timeframe() {
-    let initial_timestamp: u64 = 1685496771.try_into().unwrap();
+    let initial_timestamp: u64 = TIMESTAMP.try_into().unwrap();
     set_block_timestamp(initial_timestamp);
     setup();
     let initial_timestamp_u256 = u256_from_felt252(initial_timestamp.into());
@@ -161,7 +162,7 @@ fn test_mintable_in_timeframe() {
 #[test]
 #[available_gas(20000000)]
 fn test_mintable_in_timeframe_from_second_epoch() {
-    let initial_timestamp: u64 = 1685496771.try_into().unwrap();
+    let initial_timestamp: u64 = TIMESTAMP.try_into().unwrap();
     set_block_timestamp(initial_timestamp);
     setup();
     let initial_timestamp_u256 = u256_from_felt252(initial_timestamp.into());
@@ -169,8 +170,47 @@ fn test_mintable_in_timeframe_from_second_epoch() {
     let end_timestamp = second_epoch_start_timestamp + ERC20JDI::RATE_REDUCTION_TIME.into() * 2.into() + 1;
     let mintable_tokens = ERC20JDI::mintable_in_timeframe(second_epoch_start_timestamp, end_timestamp);
     let array = ERC20JDI::_fill_rate_in_array(end_timestamp);
-    mintable_tokens.print();
     let _tmp: u256 = (*array[1] + *array[2]) * ERC20JDI::RATE_REDUCTION_TIME.into() + *array[3] * 1.into();
+    assert(mintable_tokens == _tmp, 'Should eq');
+}
+
+#[test]
+#[available_gas(20000000)]
+fn test_mintable_in_timeframe_start_with_very_early_timestamp() {
+    let initial_timestamp: u64 = TIMESTAMP.try_into().unwrap();
+    set_block_timestamp(initial_timestamp);
+    setup();
+    let initial_timestamp_u256 = u256_from_felt252(initial_timestamp.into());
+    let second_epoch_start_timestamp = initial_timestamp_u256 + ERC20JDI::INFLATION_DELAY.into() + ERC20JDI::RATE_REDUCTION_TIME.into();
+    let end_timestamp = second_epoch_start_timestamp + ERC20JDI::RATE_REDUCTION_TIME.into() * 2.into() + 1;
+    let mintable_tokens = ERC20JDI::mintable_in_timeframe(0.into(), end_timestamp);
+    let array = ERC20JDI::_fill_rate_in_array(end_timestamp);
+    let _tmp: u256 = (*array[0] + *array[1] + *array[2]) * ERC20JDI::RATE_REDUCTION_TIME.into() + *array[3] * 1.into();
+    assert(mintable_tokens == _tmp, 'Should eq');
+}
+
+#[test]
+#[available_gas(20000000)]
+fn test_mintable_in_timeframe_end_with_very_early_timestamp() {
+    let initial_timestamp: u64 = TIMESTAMP.try_into().unwrap();
+    set_block_timestamp(initial_timestamp);
+    setup();
+    let mintable_tokens = ERC20JDI::mintable_in_timeframe(0.into(), TIMESTAMP.into() - 25.into());
+    assert(mintable_tokens == 0.into(), 'Should eq');
+}
+
+#[test]
+#[available_gas(20000000)]
+fn test_mintable_in_timeframe_start_end_in_same_epoch() {
+    let initial_timestamp: u64 = TIMESTAMP.try_into().unwrap();
+    set_block_timestamp(initial_timestamp);
+    setup();
+    let initial_timestamp_u256 = u256_from_felt252(initial_timestamp.into());
+    let start_timestamp = initial_timestamp_u256 + ERC20JDI::INFLATION_DELAY.into() + ERC20JDI::RATE_REDUCTION_TIME.into() + 12123.into();
+    let end_timestamp = start_timestamp + 1314;
+    let mintable_tokens = ERC20JDI::mintable_in_timeframe(start_timestamp, end_timestamp);
+    let array = ERC20JDI::_fill_rate_in_array(end_timestamp);
+    let _tmp: u256 = (end_timestamp - start_timestamp) * *array[1];
     assert(mintable_tokens == _tmp, 'Should eq');
 }
 
@@ -178,7 +218,7 @@ fn test_mintable_in_timeframe_from_second_epoch() {
 #[available_gas(2000000)]
 #[should_panic(expected: ('too soon', ))]
 fn test_update_mining_parameters_too_soon() {
-    let initial_timestamp: u64 = 1685496771.try_into().unwrap();
+    let initial_timestamp: u64 = TIMESTAMP.try_into().unwrap();
     set_block_timestamp(initial_timestamp);
     setup();
     ERC20JDI::update_mining_parameters(); 
@@ -188,7 +228,7 @@ fn test_update_mining_parameters_too_soon() {
 #[test]
 #[available_gas(2000000)]
 fn test_update_mining_parameters() {
-    let initial_timestamp: u64 = 1685496771.try_into().unwrap();
+    let initial_timestamp: u64 = TIMESTAMP.try_into().unwrap();
     set_block_timestamp(initial_timestamp);
     setup();
     let first_epoch_timestamp = initial_timestamp + ERC20JDI::INFLATION_DELAY.try_into().unwrap();
