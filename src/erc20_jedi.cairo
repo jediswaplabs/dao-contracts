@@ -222,6 +222,11 @@ mod ERC20JDI {
         ERC20::decrease_allowance(spender, subtracted_value)
     }
 
+    // @notice Mint `_value` tokens and assign them to `_to`
+    // @dev Emits a Transfer event originating from 0x00
+    // @param _to The account that will receive the created tokens
+    // @param _value The amount that will be created
+    // @return bool success
     #[external]
     fn mint(recipient: ContractAddress, amount: u256) -> bool {
         let minter = get_caller_address();
@@ -231,6 +236,10 @@ mod ERC20JDI {
         true
     }
 
+    // @notice Burn `_value` tokens belonging to `msg.sender`
+    // @dev Emits a Transfer event with a destination of 0x00
+    // @param _value The amount that will be burned
+    // @return bool success
     #[external]
     fn burn(account: ContractAddress, amount: u256) {
         ERC20::_burn(account, amount);
