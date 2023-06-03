@@ -282,15 +282,7 @@ mod ERC20JDI {
     // @return Timestamp of the next epoch
     #[external]
     fn future_epoch_time_write() -> u256 {
-        let start_epoch_time_: u256 = _start_epoch_time::read();
-        let timestamp: felt252 = get_block_timestamp().into();
-        if timestamp.into() >= start_epoch_time_
-            + RATE_REDUCTION_TIME.into() {
-                _update_mining_parameters();
-                return _start_epoch_time::read() + RATE_REDUCTION_TIME.into();
-            } else {
-                return start_epoch_time_ + RATE_REDUCTION_TIME.into();
-            }
+        start_epoch_time_write() + RATE_REDUCTION_TIME.into()
     }
 
     //
