@@ -1,4 +1,3 @@
-use core::traits::Into;
 // @title JediSwap DAO Token
 // @author JediSwap
 // @license MIT
@@ -27,16 +26,19 @@ mod ERC20JDI {
 
 
     struct Storage {
-        // Special address
+        // @dev minter address
         _minter: ContractAddress,
-        // Supply variables
+        // @dev mining epoch, starts from 0, every epoch is 1 year
         _mining_epoch: u256,
+        // @dev the start timestamp of the current epoch
         _start_epoch_time: u256,
+        // @dev the rate of the current epoch
         _rate: u256,
+        // @dev the supply at the start of the current epoch
         _start_epoch_supply: u256,
     }
 
-    // General constants
+    // @dev General constants
     const YEAR: u256 = 31536000; // 86400 * 365
 
 
@@ -57,9 +59,11 @@ mod ERC20JDI {
     const RATE_DENOMINATOR: felt252 = 1000000000000000000; // 10 ** 18
     const INFLATION_DELAY: felt252 = 86400; // one day
 
+    // @notice An event emitted whenever _update_mining_parameters() is called.
     #[event]
     fn UpdateMiningParameters(time: u64, rate: u256, supply: u256) {}
 
+    // @notice An event emitted whenever set_minter() is called.
     #[event]
     fn SetMinter(minter: ContractAddress) {}
 
@@ -189,8 +193,6 @@ mod ERC20JDI {
             cur_epoch_time += RATE_REDUCTION_TIME.into();
         };
         return to_mint;
-
-
     }
 
     //
